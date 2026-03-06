@@ -6,3 +6,7 @@ __pycache__/
 **/venv/
 *.dll
 *.exe
+*.h5
+*.keras
+*.pkl
+config.json
