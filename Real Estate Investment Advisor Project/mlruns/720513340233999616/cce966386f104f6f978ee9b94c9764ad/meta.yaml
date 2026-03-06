@@ -1,0 +1,15 @@
+artifact_uri: file:E:/VS Code Projects/Guvi-Projects-AIML/Real Estate Investment Advisor
+  Project/mlruns/720513340233999616/cce966386f104f6f978ee9b94c9764ad/artifacts
+end_time: 1772730608117
+entry_point_name: ''
+experiment_id: '720513340233999616'
+lifecycle_stage: active
+run_id: cce966386f104f6f978ee9b94c9764ad
+run_name: Naive Bayes
+source_name: ''
+source_type: 4
+source_version: ''
+start_time: 1772730603128
+status: 3
+tags: []
+user_id: Hp

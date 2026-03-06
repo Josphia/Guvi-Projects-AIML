@@ -1,0 +1,15 @@
+artifact_uri: file:E:/VS Code Projects/Guvi-Projects-AIML/Real Estate Investment Advisor
+  Project/mlruns/720513340233999616/5b854356743641c083d5d68495a716aa/artifacts
+end_time: 1772730675436
+entry_point_name: ''
+experiment_id: '720513340233999616'
+lifecycle_stage: active
+run_id: 5b854356743641c083d5d68495a716aa
+run_name: Extra Trees
+source_name: ''
+source_type: 4
+source_version: ''
+start_time: 1772730668955
+status: 3
+tags: []
+user_id: Hp

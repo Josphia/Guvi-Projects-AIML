@@ -1,0 +1,11 @@
+artifact_location: file:E:/VS Code Projects/Guvi-Projects-AIML/Real Estate Investment
+  Advisor Project/mlruns/720513340233999616/models/m-a18bd23d889b448ea4301130cbd06984/artifacts
+creation_timestamp: 1772730663026
+experiment_id: '720513340233999616'
+last_updated_timestamp: 1772730668894
+model_id: m-a18bd23d889b448ea4301130cbd06984
+model_type: null
+name: model_artifact
+source_run_id: f43f5c57001540f283900708e67ef0b2
+status: 2
+status_message: null
