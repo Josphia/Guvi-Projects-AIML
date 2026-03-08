@@ -19,6 +19,27 @@ csv2_path = os.path.join(base_path, "Audible_Catlog_Advanced_Features.csv")
 csv2 = pd.read_csv(csv2_path)
 csv2 = csv2.drop_duplicates()
 
+def to_hours(text):
+    h = re.search(r'(\d+)\s*hour', str(text))
+    m = re.search(r'(\d+)\s*minute', str(text))
+    hours = int(h.group(1)) if h else 0
+    minutes = int(m.group(1)) if m else 0
+    return hours + minutes/60
+def extract_genres(text):
+    if not isinstance(text, str): return []
+    
+    parts = text.split(',')
+    genres = []
+    
+    for part in parts:
+        match = re.search(r'in (.*)', part)
+        if match:
+            genre = match.group(1).strip()
+            genre = re.sub(r'\(.*\)', '', genre).strip()
+            if genre and "Audible Audiobooks" not in genre:
+                genres.append(genre)
+    return genres
+
 df = csv1.merge(csv2, how="inner", on="Book Name")
 df = df.drop(['Author_y','Rating_y', 'Price_x'], axis=1)
 df['Number of Reviews'] = df[['Number of Reviews_x', 'Number of Reviews_y']].max(axis=1)
@@ -35,35 +56,70 @@ df = df.dropna(subset=['Rating_x'])
 df = df[df["Listening Time"] != "None"]
 df = df[df["Ranks and Genre"] != "None"]
 df['Popularity'] = df['Rating_x'] * df['Number of Reviews']
-df.columns = ['Book Name', 'Author Name', 'Rating', 'Price', 'Description', 'Listening Time', 'Ranks and Genre', 'Number of Reviews', 'Popularity']
+df["Hours"] = df["Listening Time"].apply(to_hours)
+df['genre_list'] = df['Ranks and Genre'].apply(extract_genres)
+df['main_genre'] = df['genre_list'].apply(lambda x: x[0] if len(x) > 0 else 'Unknown')
+df = df[df["main_genre"] != "Unknown"]
+
+
+
+df.columns = ['Book Name', 'Author Name', 'Rating', 'Price', 'Description', 'Listening Time', 'Ranks and Genre', 'Number of Reviews', 'Popularity', 'Listening Hours', 'Genre List', 'Main Genre']
 
 with st.sidebar:
     page = st.radio("Go to", ['Home', 'EDA', 'NLP'])
 
 if page == "Home":
     st.title("You are in Home Page")
-    st.dataframe(df)
+    abc = df[['Book Name', 'Author Name', 'Rating', 'Popularity']].sort_values(by=['Rating', 'Popularity'], ascending=[False, False])
+    st.dataframe(abc)
+    
 
 elif page == "EDA":
 
-    st.subheader("Exploratory Data Analysis (EDA)")
+    st.subheader("📊 Exploratory Data Analysis (EDA)")
+
+    col1, col2, col3 = st.columns([2,2,3])  
+
+    col1.metric("Total Books", len(df), border=True)
+    col2.metric("Avg Rating", round(df['Rating'].mean(),2), border=True)
+    col3.metric("Top Author", df['Author Name'].value_counts().idxmax(), border=True)
     st.divider()
 
-    col1, col2, col3 = st.columns([1,1,2])
+    optionselected = st.selectbox("Select one from Below", ['None', 'Most Popular Genres',
+                                                            'Authors with Highest-Rated Books'
+                                                            ])
 
-    col1.metric("Total Books", len(df))
-    col2.metric("Avg Rating", round(df['Rating'].mean(),2))
-    col3.metric("Top Author", df['Author Name'].value_counts().idxmax())
-    st.divider()
+    # optionselected = st.selectbox("Select one from Below", ['None', 'Ratings Distribution', 
+    #                                          'Top 10 Popular Books',
+    #                                          'Top 5 Authors',
+    #                                          'Books with Highest Reviews',
+    #                                          'Distribution of Listening Time',
+    #                                          'Top 5 Most Listened Books',
+    #                                          'Top Rated Books'])
 
-    optionselected = st.selectbox("Select one from Below", ['None', 'Ratings Distribution', 
-                                             'Top 10 Popular Books',
-                                             'Top 5 Authors',
-                                             'Books with Highest Reviews',
-                                             'Distribution of Listening Time',
-                                             'Top 5 Most Listened Books',
-                                             'Top Rated Books'])
-    if optionselected == "Ratings Distribution":
+
+    if optionselected == "Most Popular Genres":
+        result_df = df['Main Genre'].value_counts().head(5).reset_index()
+        result_df.columns = ['Genre', 'Count']
+        st.subheader("Top 5 Popular Genre")
+        tab1, tab2 = st.tabs(["📈 Charts", "📋 Table"])
+        with tab1:
+            fig = px.pie(data_frame=result_df,names='Genre',values='Count',title='Popular Genre Distribution')
+            st.plotly_chart(fig)
+        with tab2:
+            st.dataframe(result_df, hide_index=True)
+        st.divider()
+
+    elif optionselected == "Authors with Highest-Rated Books":
+        
+
+
+
+
+
+
+
+    elif optionselected == "Ratings Distribution":
         min_Rating = df['Rating'].min()
         max_Rating = df['Rating'].max()
         st.write("")
@@ -102,13 +158,7 @@ elif page == "EDA":
     elif  optionselected == "Distribution of Listening Time":
         result_df = df[['Book Name','Listening Time']]
 
-        def to_hours(text):
-            h = re.search(r'(\d+)\s*hour', str(text))
-            m = re.search(r'(\d+)\s*minute', str(text))
-            hours = int(h.group(1)) if h else 0
-            minutes = int(m.group(1)) if m else 0
-            return hours + minutes/60
-        result_df["Hours"] = result_df["Listening Time"].apply(to_hours)
+        ########Changes needed
         result_df["Hours"] = result_df["Hours"].astype(int)
         fig = px.histogram(
             result_df,
