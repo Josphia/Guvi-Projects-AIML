@@ -10,9 +10,10 @@ from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.cluster import KMeans
 from sklearn.metrics.pairwise import cosine_similarity
 
-st.set_page_config(layout='wide')
-
-
+st.set_page_config(
+    page_title="Audible Insights",
+    page_icon="🔮",
+    layout='wide')
 
 base_path = os.path.dirname(__file__)
 
@@ -25,11 +26,11 @@ csv2 = pd.read_csv(csv2_path)
 csv2 = csv2.drop_duplicates()
 
 def to_hours(text):
-    h = re.search(r'(\d+)\s*hour', str(text))
-    m = re.search(r'(\d+)\s*minute', str(text))
-    hours = int(h.group(1)) if h else 0
-    minutes = int(m.group(1)) if m else 0
-    return hours + minutes/60
+            h = re.search(r'(\d+)\s*hour', str(text))
+            m = re.search(r'(\d+)\s*minute', str(text))
+            hours = int(h.group(1)) if h else 0
+            minutes = int(m.group(1)) if m else 0
+            return hours + minutes/60
 def extract_genres(text):
     if not isinstance(text, str): return []
     
@@ -74,6 +75,9 @@ with st.sidebar:
     page = st.radio("Go to", ['Home', 'EDA'])
 
 if page == "Home":
+
+    st.write("## Audible Insights: Intelligent Book Recommendations 🎧")
+
     st.subheader("🪄 Recommendation Engine ⚙️")
 
     tab1, tab2 = st.tabs(["Content-Based Recommendations 🧩", "Genre-Based Recommendations 🎭"])
@@ -105,22 +109,28 @@ if page == "Home":
 
     with tab2:
         st.write("#### 📚 Browse Books by Genre 🔍")
-        genres = ['None'] + sorted(df['Main Genre'].dropna().unique())
-        selected_genre = st.selectbox("Select a genre:", genres)
+
+        all_genres = sorted({genre for sublist in df['Genre List'] for genre in sublist})
+        available_genres = ['None'] + all_genres
+        selected_genre = st.selectbox("Select a genre to browse books:", available_genres, 
+            index=0, key="genre_select_advanced")
         if st.button("Get Recommendations "):
-            if selected_genre == 'None':
-                st.warning("Please select a genre")
-            else:
-                genre_books = df[df['Main Genre'] == selected_genre] \
-                    .sort_values(by='Rating', ascending=False)
-                if len(genre_books) > 0:
-                    st.write(f"##### Top books in ***{selected_genre}*** 🎭")
+            if selected_genre != 'None':
+                mask = df['Genre List'].apply(lambda x: selected_genre in x)
+                genre_recommendations = df[mask].sort_values(by='Rating', ascending=False)
+                
+                if not genre_recommendations.empty:
+                    st.write(f"##### Books categorized under ***{selected_genre}***:")
                     st.dataframe(
-                        genre_books[['Book Name', 'Author Name', 'Main Genre', 'Rating']].head(10),
+                        genre_recommendations[['Book Name', 'Author Name', 'Rating', 'Main Genre', 'Genre List']], 
                         hide_index=True
                     )
                 else:
-                    st.info("No books found")
+                    st.info("No books found for this genre.")
+            else:
+                st.warning("Please select a genre")
+
+    st.divider()
 
     
 
@@ -135,19 +145,25 @@ elif page == "EDA":
     col3.metric("Top Author", df['Author Name'].value_counts().idxmax(), border=True)
     st.divider()
 
-    optionselected = st.selectbox("Select one from Below", ['None', 'Most Popular Genres',
-                                                            'Authors with Highest-Rated Books',
-                                                            'Ratings Distribution across Books',
-                                                            'Distribution of Ratings across Review',
-                                                            'Books frequently Clustered together based on Descriptions',
-                                                            'How does genre similarity affect book recommendations?',
-                                                            'Effect of Author Popularity on Book Ratings',
-                                                            'Top 10 Popular Books',
-                                                            'Top 5 Authors',
-                                                            'Books with Highest Reviews',
-                                                            'Distribution of Listening Time',
-                                                            'Top 5 Most Listened Books',
-                                                            'Top Rated Books'])
+    optionselected = st.selectbox(
+        "Select one from Below",
+        [
+            'None',
+            'Most Popular Genres',
+            'Distribution of Ratings across Review',
+            'Ratings Distribution across Books',
+            'Distribution of Listening Time',
+            'Top 10 Popular Books',
+            'Top 5 Authors',
+            'Books with Highest Reviews',
+            'Top 5 Most Listened Books',
+            'Top Rated Books',
+            'Authors with Highest-Rated Books',
+            'Effect of Author Popularity on Book Ratings',
+            'How does genre similarity affect book recommendations?',
+            'Books frequently Clustered together based on Descriptions'
+        ]
+    )
 
     if optionselected == "Most Popular Genres":
         result_df = df['Main Genre'].value_counts().head(5).reset_index()
@@ -208,7 +224,7 @@ elif page == "EDA":
         scores = list(enumerate(similarity[idx]))
         scores = sorted(scores, key=lambda x: x[1], reverse=True)
         top_books = [df.iloc[i[0]]['Book Name'] for i in scores[1:6]]
-        st.write("### 🔍 Recommended Books (Similar Genres)")
+        st.write("#### 🔍 Recommended Books (Similar Genres)")
         for book in top_books:
             st.write("•", book)
 
@@ -257,8 +273,7 @@ elif page == "EDA":
 
     elif  optionselected == "Distribution of Listening Time":
         result_df = df[['Book Name','Listening Time']]
-
-        ########Changes needed
+        result_df["Hours"] = result_df["Listening Time"].apply(to_hours)
         result_df["Hours"] = result_df["Hours"].astype(int)
         fig = px.histogram(
             result_df,
