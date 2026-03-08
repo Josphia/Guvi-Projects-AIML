@@ -71,42 +71,56 @@ df = df[df["main_genre"] != "Unknown"]
 df.columns = ['Book Name', 'Author Name', 'Rating', 'Price', 'Description', 'Listening Time', 'Ranks and Genre', 'Number of Reviews', 'Popularity', 'Listening Hours', 'Genre List', 'Main Genre']
 
 with st.sidebar:
-    page = st.radio("Go to", ['Home', 'EDA', 'NLP'])
+    page = st.radio("Go to", ['Home', 'EDA'])
 
 if page == "Home":
     st.subheader("🪄 Recommendation Engine ⚙️")
-    
+
     tab1, tab2 = st.tabs(["Content-Based Recommendations 🧩", "Genre-Based Recommendations 🎭"])
+
     with tab1:
+        st.write("#### 📚 Browse Books by Content 🔍")
         tfidf = TfidfVectorizer(stop_words='english')
         tfidf_matrix = tfidf.fit_transform(df['Description'].fillna(''))
         cosine_sim = cosine_similarity(tfidf_matrix, tfidf_matrix)
-        st.write("#### 📚 Browse Books by Content 🔍")
-        book_choice = st.selectbox("Choose a book to get similar recommendations:", df['Book Name'].tolist(), key="book_select")
+        book_choice = st.selectbox("Choose a book:", ['None'] + df['Book Name'].tolist())
+
         if st.button("Get Recommendations"):
-            idx = df[df['Book Name'] == book_choice].index[0]
-            sim_scores = list(enumerate(cosine_sim[df.index.get_loc(idx)]))
-            sim_scores = sorted(sim_scores, key=lambda x: x[1], reverse=True)
-            book_indices = [i[0] for i in sim_scores[1:6]]
-            st.write(f"Recommendations similar to **{book_choice}**:")
-            st.dataframe(df.iloc[book_indices][['Book Name', 'Author Name', 'Rating', 'Main Genre']], hide_index=True)
-    with tab2:
-        available_genres = ['None'] +sorted(df['Main Genre'].unique())
-        st.write("#### 📚 Browse Books by Genre 🔍")
-        selected_genre = st.selectbox("Select a genre to browse books:", available_genres, index=0, key="genre_select")
-        genre_recommendations = df[df['Main Genre'] == selected_genre].sort_values(by='Rating', ascending=False)
-        if selected_genre != 'None':
-            genre_recommendations = df[df['Main Genre'] == selected_genre].sort_values(by='Rating', ascending=False)
-
-            if not genre_recommendations.empty:
-                st.write(f"Top books in **{selected_genre}**:")
-                st.dataframe(
-                    genre_recommendations[['Book Name', 'Author Name', 'Main Genre', 'Rating']].head(10), 
-                    hide_index=True
-                )
+            if book_choice == 'None':
+                st.warning("Please select a book")
             else:
-                st.info("No books found for this genre.")
+                matches = df[df['Book Name'] == book_choice]
+                if len(matches) > 0:
+                    idx = matches.index[0]
+                    sim_scores = list(enumerate(cosine_sim[idx]))
+                    sim_scores = sorted(sim_scores, key=lambda x: x[1], reverse=True)
+                    book_indices = [i[0] for i in sim_scores[1:6]]
+                    st.write(f"##### Book Recommendations similar to ***{book_choice}*** 🧩 ")
+                    st.dataframe(
+                        df.iloc[book_indices][['Book Name', 'Author Name', 'Rating', 'Main Genre']],
+                        hide_index=True
+                    )
+                else:
+                    st.error("Book not found")
 
+    with tab2:
+        st.write("#### 📚 Browse Books by Genre 🔍")
+        genres = ['None'] + sorted(df['Main Genre'].dropna().unique())
+        selected_genre = st.selectbox("Select a genre:", genres)
+        if st.button("Get Recommendations "):
+            if selected_genre == 'None':
+                st.warning("Please select a genre")
+            else:
+                genre_books = df[df['Main Genre'] == selected_genre] \
+                    .sort_values(by='Rating', ascending=False)
+                if len(genre_books) > 0:
+                    st.write(f"##### Top books in ***{selected_genre}*** 🎭")
+                    st.dataframe(
+                        genre_books[['Book Name', 'Author Name', 'Main Genre', 'Rating']].head(10),
+                        hide_index=True
+                    )
+                else:
+                    st.info("No books found")
 
     
 
