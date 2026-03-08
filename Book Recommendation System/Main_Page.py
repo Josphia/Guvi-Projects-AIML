@@ -6,6 +6,9 @@ import plotly.express as px
 import re
 import seaborn as sns
 import matplotlib.pyplot as plt
+from sklearn.feature_extraction.text import TfidfVectorizer
+from sklearn.cluster import KMeans
+from sklearn.metrics.pairwise import cosine_similarity
 
 st.set_page_config(layout='wide')
 
@@ -71,9 +74,40 @@ with st.sidebar:
     page = st.radio("Go to", ['Home', 'EDA', 'NLP'])
 
 if page == "Home":
-    st.title("You are in Home Page")
-    abc = df[['Book Name', 'Author Name', 'Rating', 'Popularity']].sort_values(by=['Rating', 'Popularity'], ascending=[False, False])
-    st.dataframe(abc)
+    st.subheader("🪄 Recommendation Engine ⚙️")
+    
+    tab1, tab2 = st.tabs(["Content-Based Recommendations 🧩", "Genre-Based Recommendations 🎭"])
+    with tab1:
+        tfidf = TfidfVectorizer(stop_words='english')
+        tfidf_matrix = tfidf.fit_transform(df['Description'].fillna(''))
+        cosine_sim = cosine_similarity(tfidf_matrix, tfidf_matrix)
+        st.write("#### 📚 Browse Books by Content 🔍")
+        book_choice = st.selectbox("Choose a book to get similar recommendations:", df['Book Name'].tolist(), key="book_select")
+        if st.button("Get Recommendations"):
+            idx = df[df['Book Name'] == book_choice].index[0]
+            sim_scores = list(enumerate(cosine_sim[df.index.get_loc(idx)]))
+            sim_scores = sorted(sim_scores, key=lambda x: x[1], reverse=True)
+            book_indices = [i[0] for i in sim_scores[1:6]]
+            st.write(f"Recommendations similar to **{book_choice}**:")
+            st.dataframe(df.iloc[book_indices][['Book Name', 'Author Name', 'Rating', 'Main Genre']], hide_index=True)
+    with tab2:
+        available_genres = ['None'] +sorted(df['Main Genre'].unique())
+        st.write("#### 📚 Browse Books by Genre 🔍")
+        selected_genre = st.selectbox("Select a genre to browse books:", available_genres, index=0, key="genre_select")
+        genre_recommendations = df[df['Main Genre'] == selected_genre].sort_values(by='Rating', ascending=False)
+        if selected_genre != 'None':
+            genre_recommendations = df[df['Main Genre'] == selected_genre].sort_values(by='Rating', ascending=False)
+
+            if not genre_recommendations.empty:
+                st.write(f"Top books in **{selected_genre}**:")
+                st.dataframe(
+                    genre_recommendations[['Book Name', 'Author Name', 'Main Genre', 'Rating']].head(10), 
+                    hide_index=True
+                )
+            else:
+                st.info("No books found for this genre.")
+
+
     
 
 elif page == "EDA":
@@ -89,17 +123,17 @@ elif page == "EDA":
 
     optionselected = st.selectbox("Select one from Below", ['None', 'Most Popular Genres',
                                                             'Authors with Highest-Rated Books',
-                                                            'Ratings Distribution across Books'
-                                                            ])
-
-    # optionselected = st.selectbox("Select one from Below", ['None', , 
-    #                                          'Top 10 Popular Books',
-    #                                          'Top 5 Authors',
-    #                                          'Books with Highest Reviews',
-    #                                          'Distribution of Listening Time',
-    #                                          'Top 5 Most Listened Books',
-    #                                          'Top Rated Books'])
-
+                                                            'Ratings Distribution across Books',
+                                                            'Distribution of Ratings across Review',
+                                                            'Books frequently Clustered together based on Descriptions',
+                                                            'How does genre similarity affect book recommendations?',
+                                                            'Effect of Author Popularity on Book Ratings',
+                                                            'Top 10 Popular Books',
+                                                            'Top 5 Authors',
+                                                            'Books with Highest Reviews',
+                                                            'Distribution of Listening Time',
+                                                            'Top 5 Most Listened Books',
+                                                            'Top Rated Books'])
 
     if optionselected == "Most Popular Genres":
         result_df = df['Main Genre'].value_counts().head(5).reset_index()
@@ -128,11 +162,57 @@ elif page == "EDA":
         st.dataframe(result_df[['Book Name', 'Author Name', 'Rating', 'Description']], hide_index=True)
         st.divider()
 
+    elif optionselected == "Distribution of Ratings across Review":
+        abc = df.copy()
+        abc['Number of Reviews'] = pd.to_numeric(abc['Number of Reviews'], errors='coerce')
+        abc['Review_Bucket'] = pd.qcut(abc['Number of Reviews'], q=5, labels=['Very Low', 'Low', 'Medium', 'High', 'Very High'])
+        fig, ax = plt.subplots(figsize=(10, 6))
+        sns.boxplot(x='Review_Bucket', y='Rating', data=abc, palette='pastel', ax=ax)
+        ax.set_title('Distribution of Ratings across Review Volume Buckets')
+        ax.set_xlabel('Number of Reviews (Grouped)')
+        ax.set_ylabel('Rating')
+        st.pyplot(fig)
+        st.divider()
 
+    elif optionselected == "Books frequently Clustered together based on Descriptions":
+        result_df = df.copy()
+        vectorizer = TfidfVectorizer(stop_words='english')
+        X = vectorizer.fit_transform(result_df['Description'].fillna(''))
+        kmeans = KMeans(n_clusters=5, random_state=42)
+        result_df['Cluster'] = kmeans.fit_predict(X)
+        st.subheader("Books frequently Clustered together based on Descriptions")
+        for i in range(5):
+            st.write(f"\n📚 Cluster Group {i+1}")
+            st.dataframe(result_df[result_df['Cluster'] == i]['Book Name'].head(7), hide_index=True)
 
+    elif optionselected == "How does genre similarity affect book recommendations?":
+        st.subheader("📚 Genre-Based Recommendations")
+        genre_dummies = df['Genre List'].str.join('|').str.get_dummies()
+        similarity = cosine_similarity(genre_dummies)
+        book_name = st.selectbox("Choose a book", df['Book Name'])
+        idx = df[df['Book Name'] == book_name].index[0]
+        scores = list(enumerate(similarity[idx]))
+        scores = sorted(scores, key=lambda x: x[1], reverse=True)
+        top_books = [df.iloc[i[0]]['Book Name'] for i in scores[1:6]]
+        st.write("### 🔍 Recommended Books (Similar Genres)")
+        for book in top_books:
+            st.write("•", book)
 
-
-    
+    elif optionselected == "Effect of Author Popularity on Book Ratings":
+        st.subheader("📊 Effect of Author Popularity on Book Ratings")
+        author_books = df.groupby('Author Name')['Book Name'].count().reset_index()
+        author_books.columns = ['Author Name', 'Book_Count']
+        author_rating = df.groupby('Author Name')['Rating'].mean().reset_index()
+        author_rating.columns = ['Author Name', 'Avg_Rating']
+        author_stats = author_books.merge(author_rating, on='Author Name')
+        corr = author_stats['Book_Count'].corr(author_stats['Avg_Rating'])
+        st.metric("Correlation (Author's Popularity vs Book's Rating)", round(corr, 2))
+        if corr > 0:
+            st.success("Positive correlation → Popular authors tend to have higher ratings.")
+        elif corr < 0:
+            st.warning("Negative correlation → Popular authors tend to have lower ratings.")
+        else:
+            st.info("No correlation → Popularity does not affect ratings.")  
     
     elif optionselected == "Top 10 Popular Books":
         result_df = df.sort_values(by='Popularity', ascending=False)
@@ -201,8 +281,4 @@ elif page == "EDA":
         st.subheader("Top Rated Books based on Ratings and No. of Reviews")
         st.dataframe(result_df[['Book Name', 'Author Name']].head(10), hide_index=True)
         st.divider()
-
-elif page == "NLP":
-    st.error("No")
-
 
