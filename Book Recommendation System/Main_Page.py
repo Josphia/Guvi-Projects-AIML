@@ -4,6 +4,8 @@ import numpy as np
 import streamlit as st
 import plotly.express as px
 import re
+import seaborn as sns
+import matplotlib.pyplot as plt
 
 st.set_page_config(layout='wide')
 
@@ -86,10 +88,11 @@ elif page == "EDA":
     st.divider()
 
     optionselected = st.selectbox("Select one from Below", ['None', 'Most Popular Genres',
-                                                            'Authors with Highest-Rated Books'
+                                                            'Authors with Highest-Rated Books',
+                                                            'Ratings Distribution across Books'
                                                             ])
 
-    # optionselected = st.selectbox("Select one from Below", ['None', 'Ratings Distribution', 
+    # optionselected = st.selectbox("Select one from Below", ['None', , 
     #                                          'Top 10 Popular Books',
     #                                          'Top 5 Authors',
     #                                          'Books with Highest Reviews',
@@ -111,22 +114,25 @@ elif page == "EDA":
         st.divider()
 
     elif optionselected == "Authors with Highest-Rated Books":
-        
+        result_df = df[['Book Name', 'Author Name', 'Rating', 'Popularity']].sort_values(by=['Rating', 'Popularity'], ascending=[False, False])
+        st.subheader("Authors with Highest-Rated Books")
+        st.dataframe(result_df[['Book Name', 'Author Name']].head(5), hide_index=True)
+        st.divider()
 
-
-
-
-
-
-
-    elif optionselected == "Ratings Distribution":
+    elif optionselected == "Ratings Distribution across Books":
         min_Rating = df['Rating'].min()
         max_Rating = df['Rating'].max()
         st.write("")
-        rating_Selected = st.slider("Select a Rating",min_value=min_Rating, max_value=max_Rating, value=max_Rating, step=0.1)
+        rating_Selected = st.slider("Select a Rating",min_value=min_Rating, max_value=max_Rating, value=max_Rating, step=0.1, width="stretch")
         result_df = df[df['Rating']==rating_Selected]
         st.dataframe(result_df[['Book Name', 'Author Name', 'Rating', 'Description']], hide_index=True)
         st.divider()
+
+
+
+
+
+    
     
     elif optionselected == "Top 10 Popular Books":
         result_df = df.sort_values(by='Popularity', ascending=False)
