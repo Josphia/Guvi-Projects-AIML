@@ -81,30 +81,9 @@ if page == "Home":
     st.write("## Audible Insights: Intelligent Book Recommendations 🎧")
     st.subheader("🪄 Recommendation Engine ⚙️")
 
-    tab1, tab2, tab3, tab4, tab5 = st.tabs(["The Echo Harmony 🎙️", "Content-Based Recommendations 🧩", "Genre-Based Recommendations 🎭", "Hidden Gems 💎", "Model Metrics 📈"])
+    tab1, tab2, tab3, tab4, tab5 = st.tabs(["Content-Based Recommendations 🧩", "Genre-Based Recommendations 🎭", "The Echo Harmony 🎙️", "Hidden Gems 💎", "Model Metrics 📈"])
 
-    with tab1:
-        st.write("#### 🎙️ The Echo Harmony: Premium Hybrid Recommendations ⚡")
-        def get_hybrid_rec(book_title, top_n=5):
-            idx = df[df['Book Name'] == book_title].index[0]
-            sim_scores = list(enumerate(cosine_sim[idx]))
-            rec_df = df.copy()
-            rec_df['similarity_score'] = [score[1] for score in sim_scores]
-            rec_df['hybrid_score'] = rec_df['similarity_score'] * (rec_df['Rating'] / 5)
-            recommendations = rec_df[rec_df['Book Name'] != book_title]
-            recommendations = recommendations.sort_values(by='hybrid_score', ascending=False)
-            return recommendations[['Book Name', 'Author Name', 'Rating', 'hybrid_score']].head(top_n)
-        book_input = st.selectbox("Select a book you enjoyed:", ["None"] + df['Book Name'].tolist(), key="hybrid_search")
-
-        if st.button("Get Hybrid Top Picks"):
-            if book_input == "None":
-                st.warning("Please select a book")
-            else:
-                results = get_hybrid_rec(book_input)
-                st.write(f"##### Best matches for ***{book_input}*** 🔷")
-                st.dataframe(results[["Book Name", "Author Name", "Rating"]], hide_index=True)
-
-    with tab2: 
+    with tab1: 
         st.write("#### 📚 Browse Books by Content 🔍")
         book_choice = st.selectbox("Choose a book:", ['None'] + df['Book Name'].tolist())
 
@@ -126,7 +105,7 @@ if page == "Home":
                 else:
                     st.error("Book not found")
 
-    with tab3:
+    with tab2:
         st.write("#### 📚 Browse Books by Genre 🔍")
 
         all_genres = sorted({genre for sublist in df['Genre List'] for genre in sublist})
@@ -148,6 +127,27 @@ if page == "Home":
                     st.info("No books found for this genre.")
             else:
                 st.warning("Please select a genre")
+
+    with tab3:
+        st.write("#### 🎙️ The Echo Harmony: Premium Hybrid Recommendations ⚡")
+        def get_hybrid_rec(book_title, top_n=5):
+            idx = df[df['Book Name'] == book_title].index[0]
+            sim_scores = list(enumerate(cosine_sim[idx]))
+            rec_df = df.copy()
+            rec_df['similarity_score'] = [score[1] for score in sim_scores]
+            rec_df['hybrid_score'] = rec_df['similarity_score'] * (rec_df['Rating'] / 5)
+            recommendations = rec_df[rec_df['Book Name'] != book_title]
+            recommendations = recommendations.sort_values(by='hybrid_score', ascending=False)
+            return recommendations[['Book Name', 'Author Name', 'Rating', 'hybrid_score']].head(top_n)
+        book_input = st.selectbox("Select a book you enjoyed:", ["None"] + df['Book Name'].tolist(), key="hybrid_search")
+
+        if st.button("Get Hybrid Top Picks"):
+            if book_input == "None":
+                st.warning("Please select a book")
+            else:
+                results = get_hybrid_rec(book_input)
+                st.write(f"##### Best matches for ***{book_input}*** 🔷")
+                st.dataframe(results[["Book Name", "Author Name", "Rating"]], hide_index=True)
 
     with tab4:
         st.write("#### 💎 Top 5 Hidden Gems 🕵️")
