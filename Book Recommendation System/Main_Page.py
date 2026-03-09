@@ -67,26 +67,45 @@ df['genre_list'] = df['Ranks and Genre'].apply(extract_genres)
 df['main_genre'] = df['genre_list'].apply(lambda x: x[0] if len(x) > 0 else 'Unknown')
 df = df[df["main_genre"] != "Unknown"]
 
-
-
 df.columns = ['Book Name', 'Author Name', 'Rating', 'Price', 'Description', 'Listening Time', 'Ranks and Genre', 'Number of Reviews', 'Popularity', 'Listening Hours', 'Genre List', 'Main Genre']
 
 with st.sidebar:
     page = st.radio("Go to", ['Home', 'EDA'])
 
+tfidf = TfidfVectorizer(stop_words='english')
+tfidf_matrix = tfidf.fit_transform(df['Description'].fillna(''))
+cosine_sim = cosine_similarity(tfidf_matrix, tfidf_matrix)
+
 if page == "Home":
 
     st.write("## Audible Insights: Intelligent Book Recommendations 🎧")
-
     st.subheader("🪄 Recommendation Engine ⚙️")
 
-    tab1, tab2 = st.tabs(["Content-Based Recommendations 🧩", "Genre-Based Recommendations 🎭"])
+    tab1, tab2, tab3, tab4 = st.tabs(["The Echo Harmony 🎙️", "Content-Based Recommendations 🧩", "Genre-Based Recommendations 🎭", "Hidden Gems 💎"])
 
     with tab1:
+        st.write("#### 🎙️ The Echo Harmony: Premium Hybrid Recommendations ⚡")
+        def get_hybrid_rec(book_title, top_n=5):
+            idx = df[df['Book Name'] == book_title].index[0]
+            sim_scores = list(enumerate(cosine_sim[idx]))
+            rec_df = df.copy()
+            rec_df['similarity_score'] = [score[1] for score in sim_scores]
+            rec_df['hybrid_score'] = rec_df['similarity_score'] * (rec_df['Rating'] / 5)
+            recommendations = rec_df[rec_df['Book Name'] != book_title]
+            recommendations = recommendations.sort_values(by='hybrid_score', ascending=False)
+            return recommendations[['Book Name', 'Author Name', 'Rating', 'hybrid_score']].head(top_n)
+        book_input = st.selectbox("Select a book you enjoyed:", ["None"] + df['Book Name'].tolist(), key="hybrid_search")
+
+        if st.button("Get Hybrid Top Picks"):
+            if book_input == "None":
+                st.warning("Please select a book")
+            else:
+                results = get_hybrid_rec(book_input)
+                st.write(f"##### Best matches for ***{book_input}*** 🔷")
+                st.dataframe(results[["Book Name", "Author Name", "Rating"]], hide_index=True)
+
+    with tab2: 
         st.write("#### 📚 Browse Books by Content 🔍")
-        tfidf = TfidfVectorizer(stop_words='english')
-        tfidf_matrix = tfidf.fit_transform(df['Description'].fillna(''))
-        cosine_sim = cosine_similarity(tfidf_matrix, tfidf_matrix)
         book_choice = st.selectbox("Choose a book:", ['None'] + df['Book Name'].tolist())
 
         if st.button("Get Recommendations"):
@@ -107,7 +126,7 @@ if page == "Home":
                 else:
                     st.error("Book not found")
 
-    with tab2:
+    with tab3:
         st.write("#### 📚 Browse Books by Genre 🔍")
 
         all_genres = sorted({genre for sublist in df['Genre List'] for genre in sublist})
@@ -129,6 +148,11 @@ if page == "Home":
                     st.info("No books found for this genre.")
             else:
                 st.warning("Please select a genre")
+
+    with tab4:
+        st.write("#### 💎 Top 5 Hidden Gems 🕵️")
+        result_df = df.sort_values(by=["Rating", "Popularity"], ascending=[False, True]).head(5)
+        st.dataframe(result_df[["Book Name", "Author Name", "Description", "Rating", "Listening Time"]], hide_index=True)
 
     st.divider()
 
