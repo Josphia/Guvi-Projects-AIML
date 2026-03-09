@@ -208,8 +208,6 @@ if page == "Home":
 
     st.divider()
 
-    
-
 elif page == "EDA":
 
     st.subheader("📊 Exploratory Data Analysis (EDA)")
@@ -386,4 +384,3 @@ elif page == "EDA":
         st.subheader("Top Rated Books based on Ratings and No. of Reviews")
         st.dataframe(result_df[['Book Name', 'Author Name']].head(10), hide_index=True)
         st.divider()
-
