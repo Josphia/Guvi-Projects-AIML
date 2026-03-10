@@ -1,9 +1,10 @@
 artifact_uri: file:E:/VS Code Projects/Guvi-Projects-AIML/Real Estate Investment Advisor
   Project/mlruns/720513340233999616/cce966386f104f6f978ee9b94c9764ad/artifacts
+deleted_time: 1773131491848
 end_time: 1772730608117
 entry_point_name: ''
 experiment_id: '720513340233999616'
-lifecycle_stage: active
+lifecycle_stage: deleted
 run_id: cce966386f104f6f978ee9b94c9764ad
 run_name: Naive Bayes
 source_name: ''

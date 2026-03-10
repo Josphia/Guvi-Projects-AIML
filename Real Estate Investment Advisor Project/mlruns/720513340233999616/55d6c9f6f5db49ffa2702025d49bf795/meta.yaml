@@ -1,9 +1,10 @@
 artifact_uri: file:E:/VS Code Projects/Guvi-Projects-AIML/Real Estate Investment Advisor
   Project/mlruns/720513340233999616/55d6c9f6f5db49ffa2702025d49bf795/artifacts
+deleted_time: 1773131491854
 end_time: 1772730586813
 entry_point_name: ''
 experiment_id: '720513340233999616'
-lifecycle_stage: active
+lifecycle_stage: deleted
 run_id: 55d6c9f6f5db49ffa2702025d49bf795
 run_name: Logistic Regression
 source_name: ''
