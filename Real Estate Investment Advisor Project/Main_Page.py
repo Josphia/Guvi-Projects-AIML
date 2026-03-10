@@ -7,6 +7,8 @@ file_path = os.path.join(base_path, "india_housing_prices.csv")
 
 df = pd.read_csv(file_path)
 
+df = df.drop_duplicates()
+
 st.set_page_config(
     page_title="Real Estate Investment Advisor",
     page_icon="📈",

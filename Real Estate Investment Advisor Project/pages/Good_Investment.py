@@ -39,7 +39,7 @@ furnished_status = st.selectbox("Furnished Status", le_furnished.classes_)
 
 st.write("\n")
 
-if st.button("Predict and Evaluate Model Metrics"):
+if st.button("Good Investment or Not"):
 
     user_df = pd.DataFrame([[ bhk, sqft, price, age, schools, hospitals, 
                             le_property.transform([property_type])[0], 

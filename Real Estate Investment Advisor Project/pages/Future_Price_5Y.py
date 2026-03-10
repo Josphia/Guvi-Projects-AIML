@@ -35,7 +35,7 @@ city = st.selectbox("City", le_city.classes_)
 
 st.write("\n")
 
-if st.button("Predict Future Price and Evaluate Model Metrics"):
+if st.button("Predict Future Price"):
 
     city_enc = le_city.transform([city])[0]
 
