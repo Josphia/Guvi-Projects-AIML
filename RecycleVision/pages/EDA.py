@@ -6,17 +6,17 @@ import seaborn as sns
 from PIL import Image
 import numpy as np
 import random
+import os
 
 st.set_page_config(page_title="RecycleVision - EDA", layout="wide")
 
 st.sidebar.subheader("Exploratory Data Analysis")
 app_mode = st.sidebar.radio("Choose an option:", ["Number of Images in each Class", "Sample Images in each Category", "Pixel Intensity Analysis"])
 
-import os
-
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 dataset_path = os.path.join(BASE_DIR, "..", "data")
 dataset_path = os.path.abspath(dataset_path)
+
 categories = ["Cardboard", "Glass", "Metal", "Paper", "Plastic", "Trash"]
 
 if app_mode == "Number of Images in each Class":

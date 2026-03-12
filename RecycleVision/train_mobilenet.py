@@ -17,7 +17,7 @@ datagen = ImageDataGenerator(
 )
 
 train_generator = datagen.flow_from_directory(
-    data_path,
+    data_path, 
     target_size=(224, 224),
     batch_size=32,
     class_mode='categorical',
