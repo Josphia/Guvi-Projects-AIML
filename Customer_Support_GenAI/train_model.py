@@ -11,12 +11,14 @@ from sklearn.preprocessing import LabelEncoder
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.linear_model import LogisticRegression
 from sklearn.metrics import classification_report
+from sklearn.utils.class_weight import compute_class_weight 
 import tensorflow as tf
 from tensorflow.keras.preprocessing.text import Tokenizer
 from tensorflow.keras.preprocessing.sequence import pad_sequences
 from tensorflow.keras.models import Sequential
 from tensorflow.keras.layers import Embedding, LSTM, Dense, SpatialDropout1D, Bidirectional
 from tensorflow.keras.callbacks import EarlyStopping
+from tensorflow.keras.layers import Dropout
 
 nltk.download('stopwords')
 nltk.download('punkt')
@@ -88,7 +90,7 @@ y_pred_lr = lr.predict(X_test_tfidf)
 
 print("Creating Tokenizer...")
 max_words = 10000
-max_len = 150
+max_len = 100
 tokenizer = Tokenizer(num_words=max_words, oov_token="<OOV>")
 tokenizer.fit_on_texts(X_train_text)
 joblib.dump(tokenizer, 'tokenizer.joblib')
@@ -96,10 +98,18 @@ joblib.dump(tokenizer, 'tokenizer.joblib')
 X_train = pad_sequences(tokenizer.texts_to_sequences(X_train_text), maxlen=max_len)
 X_test = pad_sequences(tokenizer.texts_to_sequences(X_test_text), maxlen=max_len)
 
+# model = Sequential([
+#     Embedding(max_words, 128, input_length=max_len),
+#     SpatialDropout1D(0.2),
+#     Bidirectional(LSTM(100, dropout=0.2, recurrent_dropout=0.2)),
+#     Dense(len(target_names), activation='softmax')
+# ])
+
 model = Sequential([
-    Embedding(max_words, 100, input_length=max_len),
+    Embedding(max_words, 128, input_length=max_len),
     SpatialDropout1D(0.2),
     Bidirectional(LSTM(100, dropout=0.2, recurrent_dropout=0.2)),
+    Dense(64, activation='relu'),
     Dense(len(target_names), activation='softmax')
 ])
 
@@ -109,7 +119,18 @@ model.compile(
     metrics=['accuracy']
 )
 
-early_stop = EarlyStopping(patience=2, restore_best_weights=True)
+# class_weights = compute_class_weight(
+#     class_weight='balanced',
+#     classes=np.unique(y_train),
+#     y=y_train
+# )
+
+# class_weights = dict(enumerate(class_weights))
+
+
+
+
+early_stop = EarlyStopping(patience=3, restore_best_weights=True)
 
 print("Training LSTM...")
 model.fit(
@@ -117,8 +138,9 @@ model.fit(
     epochs=10,
     batch_size=64,
     validation_data=(X_test, y_test),
-    callbacks=[early_stop]
+    callbacks=[early_stop],
+    #class_weight=class_weights
 )
 
-model.save('customer_model.keras')
+model.save("customer_model.keras")
 print("Saved successfully!")

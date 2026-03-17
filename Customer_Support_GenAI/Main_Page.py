@@ -1,65 +1,85 @@
 import streamlit as st
-import pandas as pd
+import joblib
 import numpy as np
-import warnings
+import re
+import tensorflow as tf
+from tensorflow.keras.preprocessing.sequence import pad_sequences
+import google.generativeai as genai
 
-warnings.filterwarnings("ignore")
-st.set_page_config(layout='wide', page_title="Customer Support NLP")
+genai.configure(api_key="AIzaSyC1ldwx-sND14YE5v9cHCV8AmnNSPeK0zg") 
 
-from datasets import load_dataset
-dataset = load_dataset("Tobi-Bueck/customer-support-tickets")
-df = dataset['train'].to_pandas()
+model_gemini = genai.GenerativeModel("gemini-pro")
 
+model = tf.keras.models.load_model("customer_model.h5", compile=False)
+tokenizer = joblib.load("tokenizer.joblib")
+label_encoder = joblib.load("label_encoder.joblib")
 
-
-
-
-
-
-
-
-le = LabelEncoder()
-df['label'] = le.fit_transform(df['queue']) # 
-target_names = le.classes_
-
-X_train, X_test, y_train, y_test = train_test_split(
-    df['full_text'], df['label'], test_size=0.2, random_state=42, stratify=df['label']
-)
-
-tfidf = TfidfVectorizer(max_features=5000)
-X_train_tfidf = tfidf.fit_transform(X_train)
-X_test_tfidf = tfidf.transform(X_test)
-
-max_words = 10000
 max_len = 150
-tokenizer = Tokenizer(num_words=max_words, oov_token="<OOV>")
-tokenizer.fit_on_texts(X_train)
 
-X_train_seq = pad_sequences(tokenizer.texts_to_sequences(X_train), maxlen=max_len, padding='post')
-X_test_seq = pad_sequences(tokenizer.texts_to_sequences(X_test), maxlen=max_len, padding='post')
+def clean_text(text):
+    text = str(text).lower()
+    text = re.sub(r'http\S+|www\S+', '', text)
+    text = re.sub(r'[^a-zA-Z0-9\s]', '', text)
+    text = re.sub(r'\s+', ' ', text).strip()
+    return text
 
-st.title("AI-Powered Customer Support Automation") 
+def predict_ticket(text):
+    text = clean_text(text)
+    seq = tokenizer.texts_to_sequences([text])
+    padded = pad_sequences(seq, maxlen=max_len)
 
-tabs = st.tabs(["Data Preview", "Baseline Model", "Deep Learning Preprocessing"])
+    pred = model.predict(padded)
+    label_index = np.argmax(pred)
 
-with tabs[0]:
-    st.subheader("Processed Data Sample")
-    st.dataframe(df[['full_text', 'queue']].head())
+    return label_encoder.inverse_transform([label_index])[0]
 
-with tabs[1]:
-    st.subheader("Baseline: Logistic Regression") # [cite: 56]
-    if st.button("Train & Evaluate Baseline"):
-        lr_model = LogisticRegression(max_iter=1000)
-        lr_model.fit(X_train_tfidf, y_train)
-        preds = lr_model.predict(X_test_tfidf)
-        
-        st.text("Classification Report:")
-        st.text(classification_report(y_test, preds, target_names=target_names)) # [cite: 74]
+def generate_response(ticket, category):
 
-with tabs[2]:
-    st.subheader("LSTM Preprocessing (Tokenization)") # [cite: 43]
-    st.write(f"Vocabulary Size: {len(tokenizer.word_index)}")
-    st.write("Example Padded Sequence (Input for LSTM):")
-    st.code(X_train_seq[0])
+    prompt = f"""
+You are a professional customer support assistant.
 
+A customer has submitted the following support ticket:
+"{ticket}"
 
+The issue has been classified under: {category}
+
+Write a polite, empathetic, and professional response:
+- Acknowledge the issue
+- Apologize if needed
+- Assure that the issue is being handled
+- Keep it short and clear
+- Do NOT mention AI or classification
+
+Response:
+"""
+
+    try:
+        response = model_gemini.generate_content(prompt)
+        return response.text
+
+    except Exception as e:
+        return f"Our system is currently unable to generate a response. Please try again shortly.{e}"
+
+st.set_page_config(page_title="AI Customer Support", layout="centered")
+
+st.title("🤖 AI Customer Support Assistant")
+st.write("Enter your issue and get an instant response!")
+
+user_input = st.text_area("✍️ Enter your support ticket:")
+
+if st.button("Submit"):
+    if user_input.strip() == "":
+        st.warning("Please enter a valid ticket.")
+    else:
+        with st.spinner("Analyzing your request..."):
+
+            category = predict_ticket(user_input)
+            response = generate_response(user_input, category)
+
+        st.success("✅ Done!")
+
+        st.subheader("📂 Predicted Category:")
+        st.write(f"**{category}**")
+
+        st.subheader("💬 AI Response:")
+        st.write(response)
