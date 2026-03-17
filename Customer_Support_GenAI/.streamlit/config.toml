@@ -1,0 +1,7 @@
+[theme]
+primaryColor = "#bea574"
+backgroundColor = "#dfd6c5"
+secondaryBackgroundColor = "#bea574"
+dataframeHeaderBackgroundColor = "#bea574"
+textColor = "#282828"
+font = "sans serif"
