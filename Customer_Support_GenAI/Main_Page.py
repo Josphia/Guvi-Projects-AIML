@@ -10,7 +10,7 @@ genai.configure(api_key="AIzaSyC1ldwx-sND14YE5v9cHCV8AmnNSPeK0zg")
 
 model_gemini = genai.GenerativeModel("gemini-pro")
 
-model = tf.keras.models.load_model("customer_model.h5", compile=False)
+model = tf.keras.models.load_model("customer_model.h5", compile=False, custom_objects={})
 tokenizer = joblib.load("tokenizer.joblib")
 label_encoder = joblib.load("label_encoder.joblib")
 

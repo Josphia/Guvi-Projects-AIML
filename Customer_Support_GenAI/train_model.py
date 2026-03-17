@@ -142,5 +142,5 @@ model.fit(
     #class_weight=class_weights
 )
 
-model.save("customer_model.keras")
+model.save("customer_model.h5")
 print("Saved successfully!")
