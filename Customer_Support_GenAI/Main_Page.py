@@ -6,6 +6,11 @@ import re
 import tensorflow as tf
 from tensorflow.keras.preprocessing.sequence import pad_sequences
 import google.generativeai as genai
+import os
+from dotenv import load_dotenv
+
+load_dotenv()
+api_key = os.getenv("GEMINI_API_KEY")
 
 st.set_page_config(page_title="AI Support Chat", layout="wide")
 
@@ -33,7 +38,7 @@ set_bg("background.png")
 
 @st.cache_resource
 def load_resources():
-    genai.configure(api_key="AIzaSyCYHXkwd-2LEB0Kk8-MIiJMhzcz2Kd0Ps0") 
+    genai.configure(api_key=api_key)
     model_gemini = genai.GenerativeModel(model_name="gemini-2.5-flash")
     model = tf.keras.models.load_model("customer_model.h5", compile=False)
     tokenizer = joblib.load("tokenizer.joblib")
