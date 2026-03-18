@@ -14,7 +14,7 @@ model = tf.keras.models.load_model("customer_model.h5", compile=False, custom_ob
 tokenizer = joblib.load("tokenizer.joblib")
 label_encoder = joblib.load("label_encoder.joblib")
 
-max_len = 150
+max_len = 100
 
 def clean_text(text):
     text = str(text).lower()
