@@ -1,4 +1,5 @@
 import streamlit as st
+import base64
 import joblib
 import numpy as np
 import re
@@ -6,7 +7,29 @@ import tensorflow as tf
 from tensorflow.keras.preprocessing.sequence import pad_sequences
 import google.generativeai as genai
 
-st.set_page_config(page_title="AI Support Chat", layout="centered")
+st.set_page_config(page_title="AI Support Chat", layout="wide")
+
+def get_base64(file_path):
+    with open(file_path, "rb") as f:
+        data = f.read()
+    return base64.b64encode(data).decode()
+
+def set_bg(image_file):
+    base64_img = get_base64(image_file)
+    page_bg = f"""
+    <style>
+    .stApp {{
+        background: linear-gradient(rgba(0,0,0,0.5), rgba(0,0,0,0.5)),
+                    url("data:image/png;base64,{base64_img}");
+        background-size: cover;
+        background-position: center;
+        background-repeat: no-repeat;
+    }}
+    </style>
+    """
+    st.markdown(page_bg, unsafe_allow_html=True)
+
+set_bg("background.png")
 
 @st.cache_resource
 def load_resources():
@@ -45,7 +68,7 @@ for message in st.session_state.messages:
         st.markdown(message["content"])
 
 if prompt := st.chat_input("Type your issue here..."):
-    st.chat_message("user").markdown(prompt)
+    st.chat_message("user", avatar="user.png").markdown(prompt)
     st.session_state.messages.append({"role": "user", "content": prompt})
 
     with st.spinner("Thinking..."):
@@ -59,7 +82,7 @@ if prompt := st.chat_input("Type your issue here..."):
         except Exception as e:
             full_response = "I'm sorry, I'm having trouble connecting to the server."
 
-    with st.chat_message("assistant"):
+    with st.chat_message("assistant", avatar="bot.png"):
         st.markdown(full_response)
     
     st.session_state.messages.append({"role": "assistant", "content": full_response})
