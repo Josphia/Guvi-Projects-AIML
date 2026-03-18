@@ -62,7 +62,7 @@ def predict_ticket(text):
     label_index = np.argmax(pred)
     return label_encoder.inverse_transform([label_index])[0]
 
-st.title("🤖 AI Support Assistant")
+st.title("AI Support Assistant 🤖")
 st.caption("How can I help you with your train booking today?")
 
 if "messages" not in st.session_state:
