@@ -13,9 +13,10 @@ from langchain_google_genai import ChatGoogleGenerativeAI
 load_dotenv()
 GOOGLE_API_KEY = os.getenv("GOOGLE_API_KEY")
 
-st.set_page_config(page_title="AI Knowledge Assistant", layout="wide")
+st.set_page_config(page_title="AI Knowledge Assistant", layout="wide", page_icon="🤖")
 
 def process_documents(uploaded_files):
+
     all_docs = []
     for uploaded_file in uploaded_files:
         with tempfile.NamedTemporaryFile(delete=False, suffix=uploaded_file.name) as tmp:
@@ -23,7 +24,13 @@ def process_documents(uploaded_files):
             file_path = tmp.name
         
         loader = PyPDFLoader(file_path) if file_path.endswith(".pdf") else TextLoader(file_path)
-        all_docs.extend(loader.load())
+        
+        docs = loader.load()
+        
+        for doc in docs:
+            doc.metadata["source"] = uploaded_file.name
+            
+        all_docs.extend(docs)
 
     splitter = RecursiveCharacterTextSplitter(
         chunk_size=1000,
@@ -71,7 +78,7 @@ if "memory" not in st.session_state:
 if "vector_store" in st.session_state:
     st.subheader("Personal AI Knowledge Assistant 🤖")
     llm = ChatGoogleGenerativeAI(model="gemini-2.5-flash", temperature=0.3, convert_system_message_to_human=True )
-    retriever = st.session_state.vector_store.as_retriever(search_kwargs={"k": 3})
+    retriever = st.session_state.vector_store.as_retriever(search_kwargs={"k": 6})
     
     qa_chain = ConversationalRetrievalChain.from_llm(
         llm=llm,
@@ -95,12 +102,15 @@ if "vector_store" in st.session_state:
             st.markdown(prompt)
 
         with st.chat_message("assistant", avatar="bot.png"):
-            response = qa_chain.invoke({"question": prompt})
-            answer = response["answer"]
+            try:
+                response = qa_chain.invoke({"question": prompt})
+                answer = response["answer"]
+                st.markdown(answer)
+
+            except Exception as e:
+                st.error("⚠️ Too many requests. Please wait a minute and try again.")
             
-            st.markdown(answer)
-            
-            with st.expander("View Source References"):
+            with st.expander("Source References"):
                 for doc in response["source_documents"]:
                     st.write(f"- {doc.metadata.get('source', 'Unknown')}")
 
