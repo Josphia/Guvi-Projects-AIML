@@ -8,6 +8,7 @@ from langchain_community.embeddings import HuggingFaceEmbeddings
 from langchain_community.vectorstores import FAISS
 from langchain.chains.conversational_retrieval.base import ConversationalRetrievalChain
 from langchain.memory import ConversationBufferMemory
+from langchain.memory import ConversationBufferWindowMemory
 from langchain_google_genai import ChatGoogleGenerativeAI
 #AI_Knowledge_Assistant
 load_dotenv()
@@ -69,9 +70,10 @@ if "chat_history" not in st.session_state:
     st.session_state.chat_history = []
 
 if "memory" not in st.session_state:
-    st.session_state.memory = ConversationBufferMemory(
-        memory_key="chat_history", 
-        return_messages=True, 
+    st.session_state.memory = ConversationBufferWindowMemory(
+        memory_key="chat_history",
+        return_messages=True,
+        k=3,
         output_key='answer'
     )
 
