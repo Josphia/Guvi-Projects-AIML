@@ -16,6 +16,7 @@ GOOGLE_API_KEY = os.getenv("GOOGLE_API_KEY")
 
 st.set_page_config(page_title="AI Knowledge Assistant", layout="wide", page_icon="🤖")
 
+@st.cache_resource
 def process_documents(uploaded_files):
 
     all_docs = []
@@ -109,14 +110,20 @@ if "vector_store" in st.session_state:
                 answer = response["answer"]
                 st.markdown(answer)
 
-            except Exception as e:
-                st.error("⚠️ Too many requests. Please wait a minute and try again.")
-            
-            with st.expander("Source References"):
-                for doc in response["source_documents"]:
-                    st.write(f"- {doc.metadata.get('source', 'Unknown')}")
+                # Move these INSIDE the try block
+                if "source_documents" in response:
+                    with st.expander("Source References"):
+                        # unique sources list
+                        sources = {doc.metadata.get('source', 'Unknown') for doc in response["source_documents"]}
+                        for source in sources:
+                            st.write(f"- {source}")
 
-            st.session_state.chat_history.append({"role": "assistant", "content": answer})
+                st.session_state.chat_history.append({"role": "assistant", "content": answer})
+
+            except Exception as e:
+                st.error("⚠️ Too many requests or an error occurred. Please wait a minute and try again.")
+                # Optional: log the actual error for debugging
+                st.write(e)
 else:
     st.title("Personal AI Knowledge Assistant 🤖")
     st.info("Please upload and process documents to start the conversation.")
