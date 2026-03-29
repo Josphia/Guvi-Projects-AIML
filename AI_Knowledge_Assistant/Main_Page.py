@@ -60,7 +60,6 @@ with st.sidebar:
     col1, col2, col3 = st.columns([2, 3, 2])
     with col2:
         process_btn = st.button("Train Me")
-    
 
     if process_btn and files:
         with st.spinner("I'm Training.."):
@@ -110,10 +109,8 @@ if "vector_store" in st.session_state:
                 answer = response["answer"]
                 st.markdown(answer)
 
-                # Move these INSIDE the try block
                 if "source_documents" in response:
                     with st.expander("Source References"):
-                        # unique sources list
                         sources = {doc.metadata.get('source', 'Unknown') for doc in response["source_documents"]}
                         for source in sources:
                             st.write(f"- {source}")
@@ -122,7 +119,6 @@ if "vector_store" in st.session_state:
 
             except Exception as e:
                 st.error("⚠️ Too many requests or an error occurred. Please wait a minute and try again.")
-                # Optional: log the actual error for debugging
                 st.write(e)
 else:
     st.title("Personal AI Knowledge Assistant 🤖")
