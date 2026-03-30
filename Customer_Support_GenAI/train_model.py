@@ -10,7 +10,7 @@ from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import LabelEncoder
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.linear_model import LogisticRegression
-from sklearn.metrics import classification_report
+from sklearn.metrics import classification_report, confusion_matrix
 from sklearn.utils.class_weight import compute_class_weight 
 import tensorflow as tf
 from tensorflow.keras.preprocessing.text import Tokenizer
@@ -98,13 +98,6 @@ joblib.dump(tokenizer, 'tokenizer.joblib')
 X_train = pad_sequences(tokenizer.texts_to_sequences(X_train_text), maxlen=max_len)
 X_test = pad_sequences(tokenizer.texts_to_sequences(X_test_text), maxlen=max_len)
 
-# model = Sequential([
-#     Embedding(max_words, 128, input_length=max_len),
-#     SpatialDropout1D(0.2),
-#     Bidirectional(LSTM(100, dropout=0.2, recurrent_dropout=0.2)),
-#     Dense(len(target_names), activation='softmax')
-# ])
-
 model = Sequential([
     Embedding(max_words, 128, input_length=max_len),
     SpatialDropout1D(0.2),
@@ -119,15 +112,13 @@ model.compile(
     metrics=['accuracy']
 )
 
-# class_weights = compute_class_weight(
-#     class_weight='balanced',
-#     classes=np.unique(y_train),
-#     y=y_train
-# )
+class_weights = compute_class_weight(
+    class_weight='balanced',
+    classes=np.unique(y_train),
+    y=y_train
+)
 
-# class_weights = dict(enumerate(class_weights))
-
-
+class_weights = dict(enumerate(class_weights))
 
 
 early_stop = EarlyStopping(patience=3, restore_best_weights=True)
@@ -139,8 +130,16 @@ model.fit(
     batch_size=64,
     validation_data=(X_test, y_test),
     callbacks=[early_stop],
-    #class_weight=class_weights
+    class_weight=class_weights
 )
+
+y_pred_lstm = np.argmax(model.predict(X_test), axis=1)
+
+print("Confusion Matrix (LSTM):")
+print(confusion_matrix(y_test, y_pred_lstm))
+
+print("Classification Report (LSTM):")
+print(classification_report(y_test, y_pred_lstm, target_names=target_names))
 
 model.save("customer_model.h5")
 print("Saved successfully!")

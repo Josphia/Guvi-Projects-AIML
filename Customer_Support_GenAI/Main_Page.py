@@ -8,11 +8,11 @@ from tensorflow.keras.preprocessing.sequence import pad_sequences
 import google.generativeai as genai
 import os
 from dotenv import load_dotenv
-
+#Customer_Support_GenAI
 load_dotenv()
 api_key = os.getenv("GEMINI_API_KEY")
 
-st.set_page_config(page_title="AI Support Chat", layout="wide")
+st.set_page_config(page_title="AI Support Chat", layout="wide", page_icon="🚂")
 
 def get_base64(file_path):
     with open(file_path, "rb") as f:
@@ -60,7 +60,9 @@ def predict_ticket(text):
     padded = pad_sequences(seq, maxlen=max_len)
     pred = model.predict(padded)
     label_index = np.argmax(pred)
-    return label_encoder.inverse_transform([label_index])[0]
+    confidence = np.max(pred)  
+    category = label_encoder.inverse_transform([label_index])[0]
+    return category, confidence  
 
 st.title("AI Support Assistant 🤖")
 st.caption("How can I help you with your train booking today?")
@@ -82,13 +84,13 @@ if prompt := st.chat_input("Type your issue here..."):
     st.session_state.messages.append({"role": "user", "content": prompt})
 
     with st.spinner("Thinking..."):
-        category = predict_ticket(prompt)
+        category, confidence = predict_ticket(prompt)
 
-        ai_prompt = f"You are a polite and professional customer support assistant for a train ticket booking system. User Query: {prompt}\nCategory: {category}\nGive a helpful, polite, friendly short response."
+        ai_prompt = f"You are a polite and professional customer support assistant for a train ticket booking system. User Query: {prompt}\nCategory: {category}\nProvide a concise, polite, empathetic response acknowledging the issue and assuring resolution."
         
         try:
             response_text = model_gemini.generate_content(ai_prompt).text
-            full_response = f"**Category: {category}**\n\n{response_text}"
+            full_response = f"**Category: {category} (Confidence: {confidence:.2f})**\n\n{response_text}"
         except Exception as e:
             full_response = "I'm sorry, I'm having trouble connecting to the server."
 
