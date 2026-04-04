@@ -12,7 +12,7 @@ from dotenv import load_dotenv
 load_dotenv()
 api_key = os.getenv("GEMINI_API_KEY")
 
-st.set_page_config(page_title="AI Support Chat", layout="wide", page_icon="🚂")
+st.set_page_config(page_title="AI Support Chat", layout="wide", page_icon="🎫")
 
 def get_base64(file_path):
     with open(file_path, "rb") as f:
@@ -24,7 +24,7 @@ def set_bg(image_file):
     page_bg = f"""
     <style>
     .stApp {{
-        background: linear-gradient(rgba(0,0,0,0.5), rgba(0,0,0,0.5)),
+        background: linear-gradient(rgba(0,0,0,0.6), rgba(0,0,0,0.6)),
                     url("data:image/png;base64,{base64_img}");
         background-size: cover;
         background-position: center;
@@ -86,11 +86,11 @@ if prompt := st.chat_input("Type your issue here..."):
     with st.spinner("Thinking..."):
         category, confidence = predict_ticket(prompt)
 
-        ai_prompt = f"You are a polite and professional customer support assistant for a train ticket booking system. User Query: {prompt}\nCategory: {category}\nProvide a concise, polite, empathetic response acknowledging the issue and assuring resolution."
+        ai_prompt = f"You are a polite and professional customer support assistant for a train ticket booking system. User Query: {prompt}\nCategory: {category}\nGive a helpful, polite, friendly short response."
         
         try:
             response_text = model_gemini.generate_content(ai_prompt).text
-            full_response = f"**Category: {category} (Confidence: {confidence:.2f})**\n\n{response_text}"
+            full_response = f"**Category: {category} (Confidence: {confidence*100:.2f}%)**\n\n{response_text}"
         except Exception as e:
             full_response = "I'm sorry, I'm having trouble connecting to the server."
 
