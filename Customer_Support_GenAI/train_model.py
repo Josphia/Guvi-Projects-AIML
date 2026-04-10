@@ -33,10 +33,6 @@ def expand_contractions(text):
         text = re.sub(r'\b' + word + r'\b', expanded, text)
     return text
 
-stop_words = set(stopwords.words('english'))
-custom_stops = {'dear', 'hello', 'hi', 'team', 'support', 'please', 'thank', 'thanks', 'regards', 'sincerely', 'writing', 'message'}
-stop_words.update(custom_stops)
-
 def clean_text(text):
     text = str(text).lower()
     text = text.replace('\\n', ' ').replace('\n', ' ')
@@ -48,6 +44,10 @@ def clean_text(text):
     text = re.sub(r'[^a-zA-Z\s]', '', text)
     text = re.sub(r'\s+', ' ', text).strip()
     return text
+
+stop_words = set(stopwords.words('english'))
+custom_stops = {'dear', 'hello', 'hi', 'team', 'support', 'please', 'thank', 'thanks', 'regards', 'sincerely', 'writing', 'message'}
+stop_words.update(custom_stops)
 
 def remove_stopwords(text):
     tokens = word_tokenize(text)
@@ -72,14 +72,22 @@ joblib.dump(le, 'label_encoder.joblib')
 target_names = le.classes_
 y = df['label'].values
 
-X_train_text, X_test_text, y_train, y_test = train_test_split(
-    df['text_for_dl'], y, test_size=0.2, stratify=y, random_state=42
+X_train, X_test, y_train, y_test = train_test_split(
+    df.index, y, test_size=0.2, stratify=y, random_state=42
 )
 
+X_train_ml = df.loc[X_train, 'text_for_ml']
+X_test_ml  = df.loc[X_test, 'text_for_ml']
+
+X_train_dl = df.loc[X_train, 'text_for_dl']
+X_test_dl  = df.loc[X_test, 'text_for_dl']
+
+#ML
+
 print("Creating TF-IDF...")
-tfidf = TfidfVectorizer(max_features=5000)
-X_train_tfidf = tfidf.fit_transform(X_train_text)
-X_test_tfidf = tfidf.transform(X_test_text)
+tfidf = TfidfVectorizer(max_features=5000, stop_words='english')
+X_train_tfidf = tfidf.fit_transform(X_train_ml)
+X_test_tfidf = tfidf.transform(X_test_ml)
 joblib.dump(tfidf, 'tfidf_vectorizer.joblib')
 
 print("Training Logistic Regression...")
@@ -88,20 +96,22 @@ lr.fit(X_train_tfidf, y_train)
 joblib.dump(lr, 'baseline_lr_model.joblib')
 y_pred_lr = lr.predict(X_test_tfidf)
 
+#DL
+
 print("Creating Tokenizer...")
 max_words = 10000
 max_len = 100
 tokenizer = Tokenizer(num_words=max_words, oov_token="<OOV>")
-tokenizer.fit_on_texts(X_train_text)
-joblib.dump(tokenizer, 'tokenizer.joblib')
+tokenizer.fit_on_texts(X_train_dl)
+joblib.dump({'tokenizer': tokenizer, 'max_len': max_len}, 'tokenizer_config.joblib')
 
-X_train = pad_sequences(tokenizer.texts_to_sequences(X_train_text), maxlen=max_len)
-X_test = pad_sequences(tokenizer.texts_to_sequences(X_test_text), maxlen=max_len)
+X_train = pad_sequences(tokenizer.texts_to_sequences(X_train_dl), maxlen=max_len)
+X_test = pad_sequences(tokenizer.texts_to_sequences(X_test_dl), maxlen=max_len)
 
 model = Sequential([
     Embedding(max_words, 128, input_length=max_len),
     SpatialDropout1D(0.2),
-    Bidirectional(LSTM(100, dropout=0.2, recurrent_dropout=0.2)),
+    Bidirectional(LSTM(100, dropout=0.2)),
     Dense(64, activation='relu'),
     Dense(len(target_names), activation='softmax')
 ])
@@ -119,7 +129,6 @@ class_weights = compute_class_weight(
 )
 
 class_weights = dict(enumerate(class_weights))
-
 
 early_stop = EarlyStopping(patience=3, restore_best_weights=True)
 
@@ -140,6 +149,9 @@ print(confusion_matrix(y_test, y_pred_lstm))
 
 print("Classification Report (LSTM):")
 print(classification_report(y_test, y_pred_lstm, target_names=target_names))
+
+print("Classification Report (LR):")
+print(classification_report(y_test, y_pred_lr, target_names=target_names))
 
 model.save("customer_model.h5")
 print("Saved successfully!")
