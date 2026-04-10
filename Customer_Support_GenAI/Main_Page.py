@@ -103,7 +103,7 @@ if prompt := st.chat_input("Type your issue here..."):
         ai_prompt = f"You are a polite and professional customer support assistant for a train ticket booking system. User Query: {prompt}\nCategory: {category}\nGive a helpful, polite, friendly short response."
         
         try:
-            time.sleep(15)
+            time.sleep(5)
             #response_text = get_gemini_response(ai_prompt)
             response_text = model_gemini.generate_content(ai_prompt).text
             full_response = f"**Category: {category} (Confidence: {confidence*100:.2f}%)**\n\n{response_text}"
