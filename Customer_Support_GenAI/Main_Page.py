@@ -7,6 +7,7 @@ import tensorflow as tf
 from tensorflow.keras.preprocessing.sequence import pad_sequences
 import google.generativeai as genai
 import os
+import time
 from dotenv import load_dotenv
 #Customer_Support_GenAI
 load_dotenv()
@@ -39,7 +40,7 @@ set_bg("background.png")
 @st.cache_resource
 def load_resources():
     genai.configure(api_key=api_key)
-    model_gemini = genai.GenerativeModel(model_name="gemini-2.5-flash")
+    model_gemini = genai.GenerativeModel(model_name="gemini-3.1-flash-lite-preview")
     model = tf.keras.models.load_model("customer_model.h5", compile=False)
     tokenizer = joblib.load("tokenizer.joblib")
     label_encoder = joblib.load("label_encoder.joblib")
@@ -60,9 +61,21 @@ def predict_ticket(text):
     padded = pad_sequences(seq, maxlen=max_len)
     pred = model.predict(padded)
     label_index = np.argmax(pred)
-    confidence = np.max(pred)  
+    confidence = np.max(pred)
     category = label_encoder.inverse_transform([label_index])[0]
-    return category, confidence  
+    return category, confidence
+
+def get_gemini_response(prompt):
+    for attempt in range(3):
+        try:
+            response = model_gemini.generate_content(prompt)
+            return response.text
+        except Exception as e:
+            if "429" in str(e):
+                time.sleep(5)  
+            else:
+                return f"Error: {e}"
+    return "Server is busy. Please try again in a few seconds."
 
 st.title("AI Support Assistant 🤖")
 st.caption("How can I help you with your train booking today?")
@@ -72,29 +85,33 @@ if "messages" not in st.session_state:
 
 for message in st.session_state.messages:
     if message["role"] == "user":
-        current_avatar = "user.png"
+        avatar = "user.png"
     else:
-        current_avatar = "bot.png"
-    
-    with st.chat_message(message["role"], avatar=current_avatar):
+        avatar = "bot.png"
+    with st.chat_message(message["role"], avatar=avatar):
         st.markdown(message["content"])
 
 if prompt := st.chat_input("Type your issue here..."):
+
     st.chat_message("user", avatar="user.png").markdown(prompt)
     st.session_state.messages.append({"role": "user", "content": prompt})
 
     with st.spinner("Thinking..."):
+
         category, confidence = predict_ticket(prompt)
 
         ai_prompt = f"You are a polite and professional customer support assistant for a train ticket booking system. User Query: {prompt}\nCategory: {category}\nGive a helpful, polite, friendly short response."
         
         try:
+            time.sleep(15)
+            #response_text = get_gemini_response(ai_prompt)
             response_text = model_gemini.generate_content(ai_prompt).text
             full_response = f"**Category: {category} (Confidence: {confidence*100:.2f}%)**\n\n{response_text}"
         except Exception as e:
-            full_response = "I'm sorry, I'm having trouble connecting to the server."
+            full_response = f"Error: {e}" 
+            #full_response = "I'm sorry, I'm having trouble connecting to the server."
 
     with st.chat_message("assistant", avatar="bot.png"):
         st.markdown(full_response)
-    
+
     st.session_state.messages.append({"role": "assistant", "content": full_response})
