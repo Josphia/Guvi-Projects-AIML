@@ -104,12 +104,10 @@ if prompt := st.chat_input("Type your issue here..."):
         
         try:
             time.sleep(5)
-            #response_text = get_gemini_response(ai_prompt)
             response_text = model_gemini.generate_content(ai_prompt).text
             full_response = f"**Category: {category} (Confidence: {confidence*100:.2f}%)**\n\n{response_text}"
         except Exception as e:
             full_response = f"Error: {e}" 
-            #full_response = "I'm sorry, I'm having trouble connecting to the server."
 
     with st.chat_message("assistant", avatar="bot.png"):
         st.markdown(full_response)
