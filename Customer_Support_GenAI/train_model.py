@@ -122,14 +122,6 @@ model.compile(
     metrics=['accuracy']
 )
 
-# class_weights = compute_class_weight(
-#     class_weight='balanced',
-#     classes=np.unique(y_train),
-#     y=y_train
-# )
-
-# class_weights = dict(enumerate(class_weights))
-
 early_stop = EarlyStopping(patience=3, restore_best_weights=True)
 
 print("Training LSTM...")
@@ -139,7 +131,6 @@ model.fit(
     batch_size=64,
     validation_data=(X_test, y_test),
     callbacks=[early_stop],
-    #class_weight=class_weights
 )
 
 y_pred_lstm = np.argmax(model.predict(X_test), axis=1)

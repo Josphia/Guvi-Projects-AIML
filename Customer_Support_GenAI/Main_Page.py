@@ -55,8 +55,9 @@ max_len = 100
 def clean_text(text):
     text = str(text).lower()
     text = re.sub(r'http\S+|www\S+', '', text)
-    text = re.sub(r'[^a-zA-Z\s]', '', text) # Matched precisely to training cleanup
-    return re.sub(r'\s+', ' ', text).strip()
+    text = re.sub(r'[^a-zA-Z\s]', '', text) 
+    text = re.sub(r'\s+', ' ', text).strip()
+    return text
 
 def predict_ticket(text):
     text = clean_text(text)
@@ -97,10 +98,8 @@ if prompt := st.chat_input("Type your issue here..."):
     st.session_state.messages.append({"role": "user", "content": prompt})
 
     with st.spinner("Thinking..."):
-        # Predict ticket category using the fixed LSTM pipeline
         category, confidence = predict_ticket(prompt)
 
-        # Build prompt for LLM generation
         ai_prompt = (
             f"You are a polite and professional customer support assistant for a train ticket booking system.\n"
             f"User Query: {prompt}\n"
@@ -108,7 +107,6 @@ if prompt := st.chat_input("Type your issue here..."):
             f"Give a helpful, polite, friendly short response."
         )
         
-        # Streamlined execution via the retry-safe helper function
         response_text = get_gemini_response(ai_prompt)
         
         if "Error:" not in response_text:
