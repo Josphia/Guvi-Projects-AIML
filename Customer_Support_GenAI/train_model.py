@@ -147,6 +147,9 @@ y_pred_lstm = np.argmax(model.predict(X_test), axis=1)
 print("Confusion Matrix (LSTM):")
 print(confusion_matrix(y_test, y_pred_lstm))
 
+print("Confusion Matrix (LR):")
+print(confusion_matrix(y_test, y_pred_lr))
+
 print("Classification Report (LSTM):")
 print(classification_report(y_test, y_pred_lstm, target_names=target_names))
 
