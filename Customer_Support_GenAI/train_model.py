@@ -103,7 +103,7 @@ max_words = 10000
 max_len = 100
 tokenizer = Tokenizer(num_words=max_words, oov_token="<OOV>")
 tokenizer.fit_on_texts(X_train_dl)
-joblib.dump({'tokenizer': tokenizer, 'max_len': max_len}, 'tokenizer_config.joblib')
+joblib.dump(tokenizer, 'tokenizer.joblib')
 
 X_train = pad_sequences(tokenizer.texts_to_sequences(X_train_dl), maxlen=max_len)
 X_test = pad_sequences(tokenizer.texts_to_sequences(X_test_dl), maxlen=max_len)
@@ -122,13 +122,13 @@ model.compile(
     metrics=['accuracy']
 )
 
-class_weights = compute_class_weight(
-    class_weight='balanced',
-    classes=np.unique(y_train),
-    y=y_train
-)
+# class_weights = compute_class_weight(
+#     class_weight='balanced',
+#     classes=np.unique(y_train),
+#     y=y_train
+# )
 
-class_weights = dict(enumerate(class_weights))
+# class_weights = dict(enumerate(class_weights))
 
 early_stop = EarlyStopping(patience=3, restore_best_weights=True)
 
@@ -139,7 +139,7 @@ model.fit(
     batch_size=64,
     validation_data=(X_test, y_test),
     callbacks=[early_stop],
-    class_weight=class_weights
+    #class_weight=class_weights
 )
 
 y_pred_lstm = np.argmax(model.predict(X_test), axis=1)

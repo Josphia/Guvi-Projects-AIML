@@ -16,24 +16,27 @@ api_key = os.getenv("GEMINI_API_KEY")
 st.set_page_config(page_title="AI Support Chat", layout="wide", page_icon="🎫")
 
 def get_base64(file_path):
-    with open(file_path, "rb") as f:
-        data = f.read()
-    return base64.b64encode(data).decode()
+    if os.path.exists(file_path):
+        with open(file_path, "rb") as f:
+            data = f.read()
+        return base64.b64encode(data).decode()
+    return ""
 
 def set_bg(image_file):
     base64_img = get_base64(image_file)
-    page_bg = f"""
-    <style>
-    .stApp {{
-        background: linear-gradient(rgba(0,0,0,0.6), rgba(0,0,0,0.6)),
-                    url("data:image/png;base64,{base64_img}");
-        background-size: cover;
-        background-position: center;
-        background-repeat: no-repeat;
-    }}
-    </style>
-    """
-    st.markdown(page_bg, unsafe_allow_html=True)
+    if base64_img:
+        page_bg = f"""
+        <style>
+        .stApp {{
+            background: linear-gradient(rgba(0,0,0,0.6), rgba(0,0,0,0.6)),
+                        url("data:image/png;base64,{base64_img}");
+            background-size: cover;
+            background-position: center;
+            background-repeat: no-repeat;
+        }}
+        </style>
+        """
+        st.markdown(page_bg, unsafe_allow_html=True)
 
 set_bg("background.png")
 
@@ -52,7 +55,7 @@ max_len = 100
 def clean_text(text):
     text = str(text).lower()
     text = re.sub(r'http\S+|www\S+', '', text)
-    text = re.sub(r'[^a-zA-Z0-9\s]', '', text)
+    text = re.sub(r'[^a-zA-Z\s]', '', text) # Matched precisely to training cleanup
     return re.sub(r'\s+', ' ', text).strip()
 
 def predict_ticket(text):
@@ -84,10 +87,7 @@ if "messages" not in st.session_state:
     st.session_state.messages = []
 
 for message in st.session_state.messages:
-    if message["role"] == "user":
-        avatar = "user.png"
-    else:
-        avatar = "bot.png"
+    avatar = "user.png" if message["role"] == "user" else "bot.png"
     with st.chat_message(message["role"], avatar=avatar):
         st.markdown(message["content"])
 
@@ -97,17 +97,24 @@ if prompt := st.chat_input("Type your issue here..."):
     st.session_state.messages.append({"role": "user", "content": prompt})
 
     with st.spinner("Thinking..."):
-
+        # Predict ticket category using the fixed LSTM pipeline
         category, confidence = predict_ticket(prompt)
 
-        ai_prompt = f"You are a polite and professional customer support assistant for a train ticket booking system. User Query: {prompt}\nCategory: {category}\nGive a helpful, polite, friendly short response."
+        # Build prompt for LLM generation
+        ai_prompt = (
+            f"You are a polite and professional customer support assistant for a train ticket booking system.\n"
+            f"User Query: {prompt}\n"
+            f"Category: {category}\n"
+            f"Give a helpful, polite, friendly short response."
+        )
         
-        try:
-            time.sleep(5)
-            response_text = model_gemini.generate_content(ai_prompt).text
+        # Streamlined execution via the retry-safe helper function
+        response_text = get_gemini_response(ai_prompt)
+        
+        if "Error:" not in response_text:
             full_response = f"**Category: {category} (Confidence: {confidence*100:.2f}%)**\n\n{response_text}"
-        except Exception as e:
-            full_response = f"Error: {e}" 
+        else:
+            full_response = response_text
 
     with st.chat_message("assistant", avatar="bot.png"):
         st.markdown(full_response)
