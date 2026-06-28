@@ -2,14 +2,16 @@ import os
 import tempfile
 import streamlit as st
 from dotenv import load_dotenv
-from langchain_community.document_loaders import PyPDFLoader, TextLoader
+from langchain_community.document_loaders import PyPDFLoader, TextLoader, CSVLoader, UnstructuredWordDocumentLoader
 from langchain_text_splitters import RecursiveCharacterTextSplitter
 from langchain_community.embeddings import HuggingFaceEmbeddings
 from langchain_community.vectorstores import FAISS
 from langchain.chains.conversational_retrieval.base import ConversationalRetrievalChain
-from langchain.memory import ConversationBufferMemory
 from langchain.memory import ConversationBufferWindowMemory
 from langchain_google_genai import ChatGoogleGenerativeAI
+from langchain.storage import InMemoryStore
+from langchain.retrievers import ParentDocumentRetriever
+from langchain_core.documents import Document
 #AI_Knowledge_Assistant
 load_dotenv()
 GOOGLE_API_KEY = os.getenv("GOOGLE_API_KEY")
@@ -18,14 +20,20 @@ st.set_page_config(page_title="AI Knowledge Assistant", layout="wide", page_icon
 
 @st.cache_resource
 def process_documents(uploaded_files):
-
     all_docs = []
     for uploaded_file in uploaded_files:
         with tempfile.NamedTemporaryFile(delete=False, suffix=uploaded_file.name) as tmp:
             tmp.write(uploaded_file.getbuffer())
             file_path = tmp.name
         
-        loader = PyPDFLoader(file_path) if file_path.endswith(".pdf") else TextLoader(file_path)
+        if file_path.endswith(".pdf"):
+            loader = PyPDFLoader(file_path)
+        elif file_path.endswith(".docx") or file_path.endswith(".doc"):
+            loader = UnstructuredWordDocumentLoader(file_path)
+        elif file_path.endswith(".csv"):
+            loader = CSVLoader(file_path)
+        else:
+            loader = TextLoader(file_path)
         
         docs = loader.load()
         
@@ -34,19 +42,27 @@ def process_documents(uploaded_files):
             
         all_docs.extend(docs)
 
-    splitter = RecursiveCharacterTextSplitter(
-        chunk_size=1000,
-        chunk_overlap=100
+    parent_splitter = RecursiveCharacterTextSplitter(chunk_size=2000, chunk_overlap=200)
+    child_splitter = RecursiveCharacterTextSplitter(chunk_size=400, chunk_overlap=50)
+
+    embeddings = HuggingFaceEmbeddings(model_name="all-MiniLM-L6-v2")
+
+    vector_store = FAISS.from_documents([Document(page_content="init_seed")], embeddings)
+    vector_store.delete([list(vector_store.index_to_docstore_id.values())[0]])
+
+    doc_store = InMemoryStore()
+
+    pdr_retriever = ParentDocumentRetriever(
+        vectorstore=vector_store,
+        docstore=doc_store,
+        child_splitter=child_splitter,
+        parent_splitter=parent_splitter,
+        search_kwargs={"k": 3} 
     )
-    chunks = splitter.split_documents(all_docs)
 
-    embeddings = HuggingFaceEmbeddings(
-        model_name="all-MiniLM-L6-v2"
-    )
+    pdr_retriever.add_documents(all_docs)
 
-    vector_store = FAISS.from_documents(chunks, embeddings)
-
-    return vector_store
+    return pdr_retriever
 
 with st.sidebar:
     col1, col2, col3 = st.columns([1, 12, 1])
@@ -54,7 +70,7 @@ with st.sidebar:
         st.header("📂 Upload your file below")
     files = st.file_uploader(
         " ", 
-        type=["pdf", "docx", "xlsx", "csv"], 
+        type=["pdf", "docx", "csv", "txt"], 
         accept_multiple_files=True)
     st.write("\n")
     col1, col2, col3 = st.columns([2, 3, 2])
@@ -79,8 +95,9 @@ if "memory" not in st.session_state:
 
 if "vector_store" in st.session_state:
     st.subheader("Personal AI Knowledge Assistant 🤖")
+    
     llm = ChatGoogleGenerativeAI(model="gemini-2.5-flash", temperature=0.3, convert_system_message_to_human=True )
-    retriever = st.session_state.vector_store.as_retriever(search_kwargs={"k": 6})
+    retriever = st.session_state.vector_store
     
     qa_chain = ConversationalRetrievalChain.from_llm(
         llm=llm,
@@ -90,11 +107,7 @@ if "vector_store" in st.session_state:
     )
 
     for message in st.session_state.chat_history:
-        if message["role"] == "user":
-            current_avatar = "user.png"
-        else:
-            current_avatar = "bot.png"
-        
+        current_avatar = "user.png" if message["role"] == "user" else "bot.png"
         with st.chat_message(message["role"], avatar=current_avatar):
             st.markdown(message["content"])
 
@@ -109,11 +122,18 @@ if "vector_store" in st.session_state:
                 answer = response["answer"]
                 st.markdown(answer)
 
-                if "source_documents" in response:
-                    with st.expander("Source References"):
-                        sources = {doc.metadata.get('source', 'Unknown') for doc in response["source_documents"]}
-                        for source in sources:
-                            st.write(f"- {source}")
+                if "source_documents" in response and response["source_documents"]:
+                    with st.expander("🔍 Source References & Context Snippets"):
+                        for i, doc in enumerate(response["source_documents"]):
+                            source_name = doc.metadata.get('source', 'Unknown Document')
+                            page_number = doc.metadata.get('page', None)
+                            snippet = doc.page_content
+                            
+                            page_label = f" (Page {page_number + 1})" if page_number is not None else ""
+                            st.markdown(f"**Chunk {i+1} From:** `{source_name}`{page_label}")
+                            st.caption(f'"{snippet[:350]}..."') 
+                            if i < len(response["source_documents"]) - 1:
+                                st.divider()
 
                 st.session_state.chat_history.append({"role": "assistant", "content": answer})
 
@@ -123,4 +143,3 @@ if "vector_store" in st.session_state:
 else:
     st.title("Personal AI Knowledge Assistant 🤖")
     st.info("Please upload and process documents to start the conversation.")
-    
