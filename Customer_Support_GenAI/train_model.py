@@ -7,7 +7,9 @@ import contractions
 from datasets import load_dataset
 from nltk.corpus import stopwords
 from nltk.tokenize import word_tokenize
+from nltk.stem import WordNetLemmatizer
 from sklearn.model_selection import train_test_split
+from sklearn.model_selection import cross_val_score
 from sklearn.preprocessing import LabelEncoder
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.linear_model import LogisticRegression
@@ -22,10 +24,18 @@ from tensorflow.keras.callbacks import EarlyStopping
 
 nltk.download('stopwords')
 nltk.download('punkt')
+nltk.download("wordnet")
 
 print("Loading dataset...")
-dataset = load_dataset("Tobi-Bueck/customer-support-tickets")
-df = dataset['train'].to_pandas()
+dataset = load_dataset("banking77")
+
+train_df = dataset["train"].to_pandas()
+test_df = dataset["test"].to_pandas()
+df = pd.concat([train_df, test_df], ignore_index=True)
+
+label_names = dataset["train"].features["label"].names
+
+df["intent"] = df["label"].apply(lambda x: label_names[x])
 
 def expand_contractions(text):
     return contractions.fix(text)
@@ -43,14 +53,19 @@ stop_words = set(stopwords.words('english'))
 custom_stops = {'dear', 'hello', 'hi', 'team', 'support', 'please', 'thank', 'thanks', 'regards', 'sincerely'}
 stop_words.update(custom_stops)
 
+lemmatizer = WordNetLemmatizer()
+
 def remove_stopwords(text):
     tokens = word_tokenize(text)
-    filtered_tokens = [word for word in tokens if word not in stop_words]
+    filtered_tokens = [
+        lemmatizer.lemmatize(word)
+        for word in tokens
+        if word not in stop_words
+    ]
     return " ".join(filtered_tokens)
 
-df = df[df['language'] == 'en'].copy()
-df = df.dropna(subset=['body', 'queue'])
-df['full_text'] = df['subject'].fillna('') + " " + df['body'].fillna('')
+df = df.dropna(subset=['text'])
+df['full_text'] = df['text']
 df['full_text'] = df['full_text'].apply(expand_contractions)
 df['full_text'] = df['full_text'].apply(clean_text)
 
@@ -61,26 +76,8 @@ df = df[df['text_for_ml'].str.strip() != '']
 df = df.drop_duplicates(subset=['text_for_ml'])
 df = df.reset_index(drop=True)
 
-queue_mapping = {
-    'Technical Support': 'Technical Operations',
-    'IT Support': 'Technical Operations',
-    'Product Support': 'Technical Operations',
-    'Service Outages and Maintenance': 'Technical Operations',
-    
-    'Billing and Payments': 'Billing & Sales',
-    'Sales and Pre-Sales': 'Billing & Sales',
-    
-    'Customer Service': 'General & Customer Inquiry',
-    'General Inquiry': 'General & Customer Inquiry',
-    
-    'Returns and Exchanges': 'Returns & Exchanges',
-    'Human Resources': 'Human Resources'
-}
-
-df['queue'] = df['queue'].map(queue_mapping)
-
 le = LabelEncoder()
-df['label'] = le.fit_transform(df['queue'])
+df['label'] = le.fit_transform(df['intent'])
 joblib.dump(le, 'label_encoder.joblib') 
 
 target_names = le.classes_
@@ -100,13 +97,35 @@ smoothed_weights = np.sqrt(raw_weights)
 class_weight_dict = dict(enumerate(smoothed_weights))
 
 print("Training Baseline Logistic Regression...")
-tfidf = TfidfVectorizer(max_features=5000, stop_words='english')
+tfidf = TfidfVectorizer(
+    max_features=10000,
+    stop_words='english',
+    ngram_range=(1,2),
+    min_df=2,
+    max_df=0.9
+)
 X_train_tfidf = tfidf.fit_transform(X_train_ml)
 X_test_tfidf = tfidf.transform(X_test_ml)
 joblib.dump(tfidf, 'tfidf_vectorizer.joblib')
     
-lr = LogisticRegression(max_iter=1000, class_weight='balanced')
+lr = LogisticRegression(
+    C=2,
+    solver='liblinear',
+    max_iter=2000,
+    class_weight='balanced'
+)
 lr.fit(X_train_tfidf, y_train)
+
+cv_scores = cross_val_score(
+    lr,
+    X_train_tfidf,
+    y_train,
+    cv=5,
+    scoring='accuracy'
+)
+print("\nCross Validation Accuracy:", cv_scores)
+print("Average Cross Validation Accuracy: {:.2f}%".format(cv_scores.mean() * 100))
+
 joblib.dump(lr, 'baseline_lr_model.joblib')
 
 print("Tokenizing Text for LSTM...")
@@ -139,7 +158,7 @@ early_stop = EarlyStopping(monitor='val_loss', patience=3, restore_best_weights=
 print("Training LSTM with Smoothed Class Weights...")
 model.fit(
     X_train_padded, y_train,
-    epochs=12,
+    epochs=15,
     batch_size=64,
     validation_data=(X_test_padded, y_test),
     callbacks=[early_stop],
@@ -160,6 +179,8 @@ print(classification_report(y_test, y_pred_lstm, target_names=target_names))
 
 print("\nClassification Report (LR)")
 print(classification_report(y_test, y_pred_lr, target_names=target_names))
+
+print("\nCross Validation Accuracy:", cv_scores)
 
 model.save("customer_model.h5")
 print("\nSaved Model and Configurations Successfully!")
