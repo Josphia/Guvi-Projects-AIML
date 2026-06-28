@@ -50,7 +50,7 @@ def load_resources():
     return model_gemini, model, tokenizer, label_encoder
 
 model_gemini, model, tokenizer, label_encoder = load_resources()
-max_len = 100
+max_len = 250
 
 def clean_text(text):
     text = str(text).lower()

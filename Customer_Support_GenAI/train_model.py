@@ -3,6 +3,7 @@ import numpy as np
 import re
 import nltk
 import joblib
+import contractions
 from datasets import load_dataset
 from nltk.corpus import stopwords
 from nltk.tokenize import word_tokenize
@@ -16,37 +17,30 @@ import tensorflow as tf
 from tensorflow.keras.preprocessing.text import Tokenizer
 from tensorflow.keras.preprocessing.sequence import pad_sequences
 from tensorflow.keras.models import Sequential
-from tensorflow.keras.layers import Embedding, LSTM, Dense, SpatialDropout1D, Bidirectional
+from tensorflow.keras.layers import Embedding, LSTM, Dense, SpatialDropout1D, Bidirectional, Dropout
 from tensorflow.keras.callbacks import EarlyStopping
-from tensorflow.keras.layers import Dropout
 
 nltk.download('stopwords')
 nltk.download('punkt')
 
+print("Loading dataset...")
 dataset = load_dataset("Tobi-Bueck/customer-support-tickets")
 df = dataset['train'].to_pandas()
 
-contractions_dict = {"don't": "do not", "can't": "cannot", "i'm": "i am", "it's": "it is", "i've": "i have", "you're": "you are", "doesn't": "does not"}
-
 def expand_contractions(text):
-    for word, expanded in contractions_dict.items():
-        text = re.sub(r'\b' + word + r'\b', expanded, text)
-    return text
+    return contractions.fix(text)
 
 def clean_text(text):
     text = str(text).lower()
     text = text.replace('\\n', ' ').replace('\n', ' ')
-    text = re.sub(r'<name>', '[NAME]', text)
-    text = re.sub(r'<tel_num>', '[PHONE]', text)
-    text = re.sub(r'<email>', '[EMAIL]', text)
-    text = re.sub(r'<.*?>', '', text) 
+    text = re.sub(r'<name>|<tel_num>|<email>|<.*?>', '', text) 
     text = re.sub(r'http\S+|www\S+', '', text)
     text = re.sub(r'[^a-zA-Z\s]', '', text)
     text = re.sub(r'\s+', ' ', text).strip()
     return text
 
 stop_words = set(stopwords.words('english'))
-custom_stops = {'dear', 'hello', 'hi', 'team', 'support', 'please', 'thank', 'thanks', 'regards', 'sincerely', 'writing', 'message'}
+custom_stops = {'dear', 'hello', 'hi', 'team', 'support', 'please', 'thank', 'thanks', 'regards', 'sincerely'}
 stop_words.update(custom_stops)
 
 def remove_stopwords(text):
@@ -59,11 +53,31 @@ df = df.dropna(subset=['body', 'queue'])
 df['full_text'] = df['subject'].fillna('') + " " + df['body'].fillna('')
 df['full_text'] = df['full_text'].apply(expand_contractions)
 df['full_text'] = df['full_text'].apply(clean_text)
+
 df['text_for_ml'] = df['full_text'].apply(remove_stopwords) 
 df['text_for_dl'] = df['full_text'] 
+
 df = df[df['text_for_ml'].str.strip() != '']
 df = df.drop_duplicates(subset=['text_for_ml'])
 df = df.reset_index(drop=True)
+
+queue_mapping = {
+    'Technical Support': 'Technical Operations',
+    'IT Support': 'Technical Operations',
+    'Product Support': 'Technical Operations',
+    'Service Outages and Maintenance': 'Technical Operations',
+    
+    'Billing and Payments': 'Billing & Sales',
+    'Sales and Pre-Sales': 'Billing & Sales',
+    
+    'Customer Service': 'General & Customer Inquiry',
+    'General Inquiry': 'General & Customer Inquiry',
+    
+    'Returns and Exchanges': 'Returns & Exchanges',
+    'Human Resources': 'Human Resources'
+}
+
+df['queue'] = df['queue'].map(queue_mapping)
 
 le = LabelEncoder()
 df['label'] = le.fit_transform(df['queue'])
@@ -72,80 +86,80 @@ joblib.dump(le, 'label_encoder.joblib')
 target_names = le.classes_
 y = df['label'].values
 
-X_train, X_test, y_train, y_test = train_test_split(
+X_train_idx, X_test_idx, y_train, y_test = train_test_split(
     df.index, y, test_size=0.2, stratify=y, random_state=42
 )
 
-X_train_ml = df.loc[X_train, 'text_for_ml']
-X_test_ml  = df.loc[X_test, 'text_for_ml']
+X_train_ml = df.loc[X_train_idx, 'text_for_ml']
+X_test_ml  = df.loc[X_test_idx, 'text_for_ml']
+X_train_dl = df.loc[X_train_idx, 'text_for_dl']
+X_test_dl  = df.loc[X_test_idx, 'text_for_dl']
 
-X_train_dl = df.loc[X_train, 'text_for_dl']
-X_test_dl  = df.loc[X_test, 'text_for_dl']
+raw_weights = compute_class_weight(class_weight='balanced', classes=np.unique(y_train), y=y_train)
+smoothed_weights = np.sqrt(raw_weights) 
+class_weight_dict = dict(enumerate(smoothed_weights))
 
-#ML
-
-print("Creating TF-IDF...")
+print("Training Baseline Logistic Regression...")
 tfidf = TfidfVectorizer(max_features=5000, stop_words='english')
 X_train_tfidf = tfidf.fit_transform(X_train_ml)
 X_test_tfidf = tfidf.transform(X_test_ml)
 joblib.dump(tfidf, 'tfidf_vectorizer.joblib')
     
-print("Training Logistic Regression...")
-lr = LogisticRegression(max_iter=1000)
+lr = LogisticRegression(max_iter=1000, class_weight='balanced')
 lr.fit(X_train_tfidf, y_train)
 joblib.dump(lr, 'baseline_lr_model.joblib')
-y_pred_lr = lr.predict(X_test_tfidf)
 
-#DL
-
-print("Creating Tokenizer...")
+print("Tokenizing Text for LSTM...")
 max_words = 10000
-max_len = 100
+max_len = 250  
 tokenizer = Tokenizer(num_words=max_words, oov_token="<OOV>")
 tokenizer.fit_on_texts(X_train_dl)
 joblib.dump(tokenizer, 'tokenizer.joblib')
 
-X_train = pad_sequences(tokenizer.texts_to_sequences(X_train_dl), maxlen=max_len)
-X_test = pad_sequences(tokenizer.texts_to_sequences(X_test_dl), maxlen=max_len)
+X_train_padded = pad_sequences(tokenizer.texts_to_sequences(X_train_dl), maxlen=max_len)
+X_test_padded = pad_sequences(tokenizer.texts_to_sequences(X_test_dl), maxlen=max_len)
 
 model = Sequential([
     Embedding(max_words, 128, input_length=max_len),
     SpatialDropout1D(0.2),
-    Bidirectional(LSTM(100, dropout=0.2)),
+    Bidirectional(LSTM(64, dropout=0.2, recurrent_dropout=0)), # Optimized layout
     Dense(64, activation='relu'),
+    Dropout(0.3),
     Dense(len(target_names), activation='softmax')
 ])
 
 model.compile(
     loss='sparse_categorical_crossentropy',
-    optimizer='adam',
+    optimizer=tf.keras.optimizers.Adam(learning_rate=0.0003), # Lower, stable learning rate
     metrics=['accuracy']
 )
 
-early_stop = EarlyStopping(patience=3, restore_best_weights=True)
+early_stop = EarlyStopping(monitor='val_loss', patience=3, restore_best_weights=True)
 
-print("Training LSTM...")
+print("Training LSTM with Smoothed Class Weights...")
 model.fit(
-    X_train, y_train,
-    epochs=10,
+    X_train_padded, y_train,
+    epochs=12,
     batch_size=64,
-    validation_data=(X_test, y_test),
+    validation_data=(X_test_padded, y_test),
     callbacks=[early_stop],
+    class_weight=class_weight_dict
 )
 
-y_pred_lstm = np.argmax(model.predict(X_test), axis=1)
+y_pred_lstm = np.argmax(model.predict(X_test_padded), axis=1)
+y_pred_lr = lr.predict(X_test_tfidf)
 
-print("Confusion Matrix (LSTM):")
+print("\nConfusion Matrix (LSTM)")
 print(confusion_matrix(y_test, y_pred_lstm))
 
-print("Confusion Matrix (LR):")
+print("\nConfusion Matrix (LR)")
 print(confusion_matrix(y_test, y_pred_lr))
 
-print("Classification Report (LSTM):")
+print("\nClassification Report (LSTM)")
 print(classification_report(y_test, y_pred_lstm, target_names=target_names))
 
-print("Classification Report (LR):")
+print("\nClassification Report (LR)")
 print(classification_report(y_test, y_pred_lr, target_names=target_names))
 
 model.save("customer_model.h5")
-print("Saved successfully!")
+print("\nSaved Model and Configurations Successfully!")
