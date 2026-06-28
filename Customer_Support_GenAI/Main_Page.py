@@ -3,13 +3,11 @@ import base64
 import joblib
 import numpy as np
 import re
-import tensorflow as tf
-from tensorflow.keras.preprocessing.sequence import pad_sequences
 import google.generativeai as genai
 import os
 import time
 from dotenv import load_dotenv
-#Customer_Support_GenAI
+# Customer_Support_GenAI
 load_dotenv()
 api_key = os.getenv("GEMINI_API_KEY")
 
@@ -44,13 +42,13 @@ set_bg("background.png")
 def load_resources():
     genai.configure(api_key=api_key)
     model_gemini = genai.GenerativeModel(model_name="gemini-3.1-flash-lite-preview")
-    model = tf.keras.models.load_model("customer_model.h5", compile=False)
-    tokenizer = joblib.load("tokenizer.joblib")
+    lr_model = joblib.load("baseline_lr_model.joblib")
+    tfidf = joblib.load("tfidf_vectorizer.joblib")
     label_encoder = joblib.load("label_encoder.joblib")
-    return model_gemini, model, tokenizer, label_encoder
+    
+    return model_gemini, lr_model, tfidf, label_encoder
 
-model_gemini, model, tokenizer, label_encoder = load_resources()
-max_len = 250
+model_gemini, lr_model, tfidf, label_encoder = load_resources()
 
 def clean_text(text):
     text = str(text).lower()
@@ -61,11 +59,10 @@ def clean_text(text):
 
 def predict_ticket(text):
     text = clean_text(text)
-    seq = tokenizer.texts_to_sequences([text])
-    padded = pad_sequences(seq, maxlen=max_len)
-    pred = model.predict(padded)
-    label_index = np.argmax(pred)
-    confidence = np.max(pred)
+    vectorized_text = tfidf.transform([text])
+    pred_probs = lr_model.predict_proba(vectorized_text)
+    label_index = np.argmax(pred_probs)
+    confidence = np.max(pred_probs)
     category = label_encoder.inverse_transform([label_index])[0]
     return category, confidence
 
@@ -82,7 +79,7 @@ def get_gemini_response(prompt):
     return "Server is busy. Please try again in a few seconds."
 
 st.title("AI Support Assistant 🤖")
-st.caption("How can I help you with your train booking today?")
+st.caption("How can I help you with your banking or booking today?")
 
 if "messages" not in st.session_state:
     st.session_state.messages = []
@@ -101,10 +98,10 @@ if prompt := st.chat_input("Type your issue here..."):
         category, confidence = predict_ticket(prompt)
 
         ai_prompt = (
-            f"You are a polite and professional customer support assistant for a train ticket booking system.\n"
+            f"You are a polite and professional customer support assistant.\n"
             f"User Query: {prompt}\n"
-            f"Category: {category}\n"
-            f"Give a helpful, polite, friendly short response."
+            f"Detected Category Intent: {category}\n"
+            f"Give a helpful, polite, friendly short response addressing this specific issue."
         )
         
         response_text = get_gemini_response(ai_prompt)
