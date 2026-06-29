@@ -17,7 +17,10 @@ model_choice = st.radio(
     ["MobileNetV2", "EfficientNetB0", "Compare Both"]
 )
 
-datagen = ImageDataGenerator(rescale=1./255, validation_split=0.2)
+if model_choice == "MobileNetV2":
+    datagen = ImageDataGenerator(rescale=1./255, validation_split=0.2)
+else:
+    datagen = ImageDataGenerator(validation_split=0.2)
 
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 data_path = os.path.join(BASE_DIR, "data")

@@ -5,11 +5,11 @@ from tensorflow.keras.layers import Dense, GlobalAveragePooling2D, Dropout
 from tensorflow.keras.models import Model
 from sklearn.metrics import classification_report, accuracy_score
 import numpy as np
+import os
 
 data_path = 'data'
 
 datagen = ImageDataGenerator(
-    rescale=1./255,
     validation_split=0.2,
     rotation_range=20,
     zoom_range=0.15,
@@ -46,14 +46,19 @@ predictions = Dense(train_generator.num_classes, activation='softmax')(x)
 
 model = Model(inputs=base_model.input, outputs=predictions)
 
-model.compile(optimizer='adam', loss='categorical_crossentropy', metrics=['accuracy'])
+model.compile(
+    optimizer='adam',
+    loss='categorical_crossentropy',
+    metrics=['accuracy']
+)
 
-history = model.fit(train_generator, validation_data=val_generator, epochs=15)
-
-val_generator.reset()
-preds = model.predict(val_generator)
-y_pred = np.argmax(preds, axis=1)
-y_true = val_generator.classes
+history = model.fit(
+    train_generator,
+    steps_per_epoch=len(train_generator),
+    validation_data=val_generator,
+    validation_steps=len(val_generator),
+    epochs=15
+)
 
 model.save("efficientnet_model.h5")
 print("EfficientNet model saved successfully!!")

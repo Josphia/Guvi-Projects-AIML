@@ -11,10 +11,9 @@ st.write("Upload an image to find its Category..")
 
 @st.cache_resource
 def load_my_model():
-
     BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-    model_path = os.path.join(BASE_DIR, "mobilenet_model.h5")
-
+    
+    model_path = os.path.join(BASE_DIR, "efficientnet_model.h5")
     return tf.keras.models.load_model(model_path)
 
 model = load_my_model()
@@ -29,7 +28,8 @@ if uploaded_file is not None:
     st.write("Classifying...")
 
     img = image.resize((224, 224))
-    img_array = np.array(img) / 255.0  
+    
+    img_array = np.array(img)  
     img_array = np.expand_dims(img_array, axis=0) 
 
     predictions = model.predict(img_array)
