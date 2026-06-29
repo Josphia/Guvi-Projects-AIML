@@ -3,9 +3,11 @@ from tensorflow.keras.preprocessing.image import ImageDataGenerator
 from tensorflow.keras.applications import EfficientNetB0
 from tensorflow.keras.layers import Dense, GlobalAveragePooling2D, Dropout
 from tensorflow.keras.models import Model
-from sklearn.metrics import classification_report, accuracy_score
-import numpy as np
 import os
+import mlflow
+import mlflow.tensorflow
+
+mlflow.set_experiment("RecycleVision_Garbage_Classification")
 
 data_path = 'data'
 
@@ -46,19 +48,17 @@ predictions = Dense(train_generator.num_classes, activation='softmax')(x)
 
 model = Model(inputs=base_model.input, outputs=predictions)
 
-model.compile(
-    optimizer='adam',
-    loss='categorical_crossentropy',
-    metrics=['accuracy']
-)
+model.compile(optimizer='adam', loss='categorical_crossentropy', metrics=['accuracy'])
 
-history = model.fit(
-    train_generator,
-    steps_per_epoch=len(train_generator),
-    validation_data=val_generator,
-    validation_steps=len(val_generator),
-    epochs=15
-)
+with mlflow.start_run(run_name="EfficientNetB0_Base_Training"):
+    mlflow.tensorflow.autolog()
+    
+    print("Training EfficientNetB0...")
+    history = model.fit(
+        train_generator, 
+        validation_data=val_generator, 
+        epochs=15
+    )
 
 model.save("efficientnet_model.h5")
 print("EfficientNet model saved successfully!!")

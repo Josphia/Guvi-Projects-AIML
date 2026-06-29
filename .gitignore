@@ -4,6 +4,7 @@ __pycache__/
 .ipynb_checkpoints/
 .DS_Store
 **/venv/
+.venv/
 *.dll
 *.exe
 *.h5
@@ -11,3 +12,10 @@ __pycache__/
 *.pkl
 config.json
 .env
+Thumbs.db
+mlruns/
+mlflow.db
+mlflow.db-journal
+*.tflite
+*.pb
+.streamlit/config.toml
