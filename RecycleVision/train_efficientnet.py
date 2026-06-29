@@ -7,6 +7,7 @@ import os
 import mlflow
 import mlflow.tensorflow
 
+mlflow.set_tracking_uri("sqlite:///mlflow.db")
 mlflow.set_experiment("RecycleVision_Garbage_Classification")
 
 data_path = 'data'
@@ -50,8 +51,9 @@ model = Model(inputs=base_model.input, outputs=predictions)
 
 model.compile(optimizer='adam', loss='categorical_crossentropy', metrics=['accuracy'])
 
+mlflow.tensorflow.autolog()
+
 with mlflow.start_run(run_name="EfficientNetB0_Base_Training"):
-    mlflow.tensorflow.autolog()
     
     print("Training EfficientNetB0...")
     history = model.fit(
