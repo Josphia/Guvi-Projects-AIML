@@ -92,10 +92,6 @@ X_test_ml  = df.loc[X_test_idx, 'text_for_ml']
 X_train_dl = df.loc[X_train_idx, 'text_for_dl']
 X_test_dl  = df.loc[X_test_idx, 'text_for_dl']
 
-raw_weights = compute_class_weight(class_weight='balanced', classes=np.unique(y_train), y=y_train)
-smoothed_weights = np.sqrt(raw_weights) 
-class_weight_dict = dict(enumerate(smoothed_weights))
-
 print("Training Baseline Logistic Regression...")
 tfidf = TfidfVectorizer(
     max_features=10000,
@@ -141,7 +137,7 @@ X_test_padded = pad_sequences(tokenizer.texts_to_sequences(X_test_dl), maxlen=ma
 model = Sequential([
     Embedding(max_words, 128, input_length=max_len),
     SpatialDropout1D(0.2),
-    Bidirectional(LSTM(64, dropout=0.2, recurrent_dropout=0)), # Optimized layout
+    Bidirectional(LSTM(64, dropout=0.2, recurrent_dropout=0)), 
     Dense(64, activation='relu'),
     Dropout(0.3),
     Dense(len(target_names), activation='softmax')
@@ -149,11 +145,15 @@ model = Sequential([
 
 model.compile(
     loss='sparse_categorical_crossentropy',
-    optimizer=tf.keras.optimizers.Adam(learning_rate=0.0003), # Lower, stable learning rate
+    optimizer=tf.keras.optimizers.Adam(learning_rate=0.0003), 
     metrics=['accuracy']
 )
 
 early_stop = EarlyStopping(monitor='val_loss', patience=3, restore_best_weights=True)
+
+raw_weights = compute_class_weight(class_weight='balanced', classes=np.unique(y_train), y=y_train)
+smoothed_weights = np.sqrt(raw_weights) 
+class_weight_dict = dict(enumerate(smoothed_weights))
 
 print("Training LSTM with Smoothed Class Weights...")
 model.fit(
@@ -164,6 +164,9 @@ model.fit(
     callbacks=[early_stop],
     class_weight=class_weight_dict
 )
+
+model.save("customer_model.h5")
+print("\nSaved Model and Configurations Successfully!")
 
 y_pred_lstm = np.argmax(model.predict(X_test_padded), axis=1)
 y_pred_lr = lr.predict(X_test_tfidf)
@@ -181,6 +184,3 @@ print("\nClassification Report (LR)")
 print(classification_report(y_test, y_pred_lr, target_names=target_names))
 
 print("\nCross Validation Accuracy:", cv_scores)
-
-model.save("customer_model.h5")
-print("\nSaved Model and Configurations Successfully!")

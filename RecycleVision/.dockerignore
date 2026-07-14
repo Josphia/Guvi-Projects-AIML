@@ -7,4 +7,3 @@ __pycache__/
 .gitignore
 mlruns/
 mlflow.db
-data/
