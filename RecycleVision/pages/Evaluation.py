@@ -14,7 +14,7 @@ st.subheader("📊 Model Evaluation")
 
 model_choice = st.radio(
     "Choose Model:",
-    ["MobileNetV2", "EfficientNetB0", "Compare Both"]
+    ["MobileNetV2", "EfficientNetB0"]
 )
 
 if model_choice == "MobileNetV2":
@@ -67,27 +67,6 @@ if model_choice == "MobileNetV2":
 
 elif model_choice == "EfficientNetB0":
     accuracy, avg_f1, metrics_df, y_pred = evaluate(efficientnet_model_path)
-
-elif model_choice == "Compare Both":
-
-    acc1, f1_1, _, _ = evaluate(mobilenet_model_path)
-    acc2, f1_2, _, _ = evaluate(efficientnet_model_path)
-
-    comparison = pd.DataFrame({
-        "Model": ["MobileNetV2", "EfficientNetB0"],
-        "Accuracy": [acc1, acc2],
-        "Average F1-Score": [f1_1, f1_2]
-    })
-
-    st.subheader("Comparison Table")
-    st.dataframe(comparison, hide_index=True)
-
-    if f1_1 > f1_2:
-        st.success("The Best Model is MobileNetV2")
-    else:
-        st.success("The Best Model is EfficientNetB0")
-
-    st.stop()
 
 st.subheader("Metrics:")
 st.dataframe(metrics_df, hide_index=True)

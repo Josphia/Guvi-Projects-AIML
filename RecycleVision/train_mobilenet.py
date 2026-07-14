@@ -5,6 +5,11 @@ from tensorflow.keras.layers import Dense, GlobalAveragePooling2D, Dropout
 from tensorflow.keras.models import Model
 from sklearn.metrics import classification_report, confusion_matrix
 import numpy as np
+import mlflow
+import mlflow.tensorflow
+
+mlflow.set_tracking_uri("sqlite:///mlflow.db")
+mlflow.set_experiment("RecycleVision_Garbage_Classification")
 
 data_path = 'data'
 
@@ -49,12 +54,16 @@ model = Model(inputs=base_model.input, outputs=predictions)
 
 model.compile(optimizer='adam', loss='categorical_crossentropy', metrics=['accuracy'])
 
-history = model.fit(train_generator, validation_data=val_generator, epochs=15)
+mlflow.tensorflow.autolog()
 
-val_generator.reset()
-predictions = model.predict(val_generator)
-y_pred = np.argmax(predictions, axis=1)
-y_true = val_generator.classes
+with mlflow.start_run(run_name="MobileNetV2_Base_Training"):
+
+    print("Training MobileNetV2...")
+    history = model.fit(
+        train_generator,
+        validation_data=val_generator,
+        epochs=15
+    )
 
 model.save('mobilenet_model.h5')
 print("MobileNet model saved successfully!!")
